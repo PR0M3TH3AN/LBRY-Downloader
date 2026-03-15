@@ -33,17 +33,59 @@ channels:
     enabled: true
 ```
 
-## Running
+## Launching
+
+### Start the LBRY Daemon First
+
+**Important:** The LBRY daemon must be running before using the downloader:
 
 ```bash
-# Test what would be downloaded
+# Start the daemon
+lbrynet start
+
+# Check if it's running
+lbrynet status
+```
+
+### Launch LBRY Downloader
+
+**Method 1: Using the Launcher (Recommended)**
+```bash
+cd ~/Documents/LBRY-Downloader
+./bin/lbry-downloader --dry-run
+```
+
+**Method 2: Add to PATH and run from anywhere**
+```bash
+# One-time setup
+echo 'export PATH="$HOME/Documents/LBRY-Downloader/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+# Now run from anywhere
+lbry-downloader --dry-run
+```
+
+**Method 3: Using Virtual Environment**
+```bash
+cd ~/Documents/LBRY-Downloader
+source venv/bin/activate
 python main.py --dry-run
+```
 
-# Actually download
-python main.py
+### Common Commands
 
-# Use custom config
-python main.py --config ./custom-config.yaml
+```bash
+# Test what would be downloaded (dry run) - ALWAYS DO THIS FIRST
+lbry-downloader --dry-run
+
+# Actually download content
+lbry-downloader
+
+# Use custom config file
+lbry-downloader --config ./my-config.yaml
+
+# View help
+lbry-downloader --help
 ```
 
 ## Understanding Output

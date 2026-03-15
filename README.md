@@ -139,6 +139,63 @@ This is useful for:
 - **Large channels**: Gradually sync channels with thousands of videos
 - **Bandwidth**: Control how much data is downloaded per run
 
+## Launching the Application
+
+After installation, you can launch LBRY Downloader in several ways:
+
+### Method 1: Using the Launcher Script (Recommended)
+
+```bash
+# Run from install directory
+cd ~/Documents/LBRY-Downloader
+./bin/lbry-downloader
+
+# Or if you added it to your PATH (see below)
+lbry-downloader
+```
+
+### Method 2: Using the Virtual Environment
+
+```bash
+cd ~/Documents/LBRY-Downloader
+source venv/bin/activate
+python main.py
+```
+
+### Method 3: Quick Test Script
+
+```bash
+cd ~/Documents/LBRY-Downloader
+./bin/lbry-test  # Automatically runs with --dry-run
+```
+
+### Add to PATH (Run from Anywhere)
+
+Add this to your `~/.bashrc` or `~/.zshrc`:
+
+```bash
+export PATH="$HOME/Documents/LBRY-Downloader/bin:$PATH"
+```
+
+Then reload your shell:
+```bash
+source ~/.bashrc  # or source ~/.zshrc
+```
+
+Now you can run `lbry-downloader` from any directory!
+
+### Prerequisites Before Running
+
+**Important:** Make sure the LBRY daemon is running first:
+
+```bash
+# Start the daemon
+lbrynet start
+
+# Check if it's running
+lbrynet status
+```
+
 ## Usage
 
 ```bash

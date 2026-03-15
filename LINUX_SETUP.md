@@ -637,11 +637,74 @@ rm ~/.local/bin/lbrynet
 # Edit ~/.bashrc and remove the lbry-downloader PATH line
 ```
 
+## Launching the Application
+
+After installation, there are several ways to launch LBRY Downloader:
+
+### Method 1: Launcher Script (Recommended)
+
+The setup script creates launcher scripts in `~/Documents/LBRY-Downloader/bin/`:
+
+```bash
+# Navigate to install directory
+cd ~/Documents/LBRY-Downloader
+
+# Run the downloader
+./bin/lbry-downloader --dry-run
+
+# Or run without changing directory
+~/Documents/LBRY-Downloader/bin/lbry-downloader --dry-run
+```
+
+### Method 2: Add to PATH
+
+Add the bin directory to your PATH to run from anywhere:
+
+```bash
+# Add to PATH (one-time setup)
+echo 'export PATH="$HOME/Documents/LBRY-Downloader/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+# Now run from any directory
+lbry-downloader --dry-run
+lbry-downloader
+```
+
+### Method 3: Using Virtual Environment
+
+```bash
+cd ~/Documents/LBRY-Downloader
+source venv/bin/activate
+python main.py --dry-run
+```
+
+### Method 4: Quick Test
+
+```bash
+cd ~/Documents/LBRY-Downloader
+./bin/lbry-test  # Automatically runs with --dry-run
+```
+
+### Prerequisites: Start the Daemon
+
+**Important:** Always start the LBRY daemon before running the downloader:
+
+```bash
+# Check if daemon is running
+lbrynet status
+
+# Start if not running
+lbrynet start
+
+# Or if using systemd
+sudo systemctl start lbrynet
+```
+
 ## Quick Reference
 
 ```bash
 # Automated Setup (one-time)
-./setup.py
+curl -fsSL https://raw.githubusercontent.com/PR0M3TH3AN/LBRY-Downloader/main/remote-install.sh -o install-lbry.sh && bash install-lbry.sh
 
 # Manual Setup (one-time)
 sudo apt install python3 python3-pip
@@ -649,12 +712,17 @@ pip3 install --user -r requirements.txt
 python3 init.py
 
 # Daily use
-lbrynet start                    # Start daemon
-python3 main.py --dry-run        # Test first
-python3 main.py                  # Run sync
-lbrynet stop                     # Stop daemon (optional)
+lbrynet start                                          # Start daemon
+~/Documents/LBRY-Downloader/bin/lbry-downloader --dry-run  # Test first
+~/Documents/LBRY-Downloader/bin/lbry-downloader            # Run sync
+lbrynet stop                                           # Stop daemon (optional)
+
+# Or if in PATH
+lbry-downloader --dry-run
+lbry-downloader
 
 # Locations
+Install:   ~/Documents/LBRY-Downloader/
 Config:    ~/Documents/lbry-downloads/config.yaml
 Downloads: ~/Documents/lbry-downloads/channels/
 State:     ~/Documents/lbry-downloads/state/

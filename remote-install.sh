@@ -70,16 +70,9 @@ fi
 print_status "Python $PYTHON_VERSION found"
 
 # Check if running in interactive mode
-if [ ! -t 0 ]; then
-    print_error "This script requires interactive mode"
-    echo ""
-    echo "Please run using:"
-    echo "  curl -fsSL https://raw.githubusercontent.com/PR0M3TH3AN/LBRY-Downloader/main/remote-install.sh -o install-lbry.sh && bash install-lbry.sh"
-    echo ""
-    echo "Or clone manually:"
-    echo "  git clone https://github.com/PR0M3TH3AN/LBRY-Downloader.git"
-    echo "  cd LBRY-Downloader && ./setup.py"
-    exit 1
+INTERACTIVE=false
+if [ -t 0 ]; then
+    INTERACTIVE=true
 fi
 
 # Check if already installed
