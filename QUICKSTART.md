@@ -1,6 +1,14 @@
 # Quick Start Guide
 
-## Installation
+## One-Line Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/PR0M3TH3AN/LBRY-Downloader/main/remote-install.sh | bash
+```
+
+**Requirements:** Git and Python 3.8+ must be installed.
+
+## Manual Installation
 
 ```bash
 # Clone or download the repository

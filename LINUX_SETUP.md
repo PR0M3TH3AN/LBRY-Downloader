@@ -2,13 +2,28 @@
 
 Complete instructions for setting up LBRY Downloader on Debian-based Linux distributions.
 
-## Quick Start (Automated Setup)
+## One-Line Install (Easiest)
 
-The easiest way to install is using the interactive setup script:
+Install with a single command using curl:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/PR0M3TH3AN/LBRY-Downloader/main/remote-install.sh | bash
+```
+
+**Requirements:** Git and Python 3.8+ must be installed.
+
+**What this does:**
+1. Downloads the repository
+2. Runs the interactive setup script
+3. Configures everything automatically
+
+## Interactive Setup
+
+If you prefer to clone manually, use the interactive setup script:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/LBRY-Downloader.git
+git clone https://github.com/PR0M3TH3AN/LBRY-Downloader.git
 cd LBRY-Downloader
 
 # Run the interactive installer
