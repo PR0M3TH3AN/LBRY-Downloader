@@ -23,15 +23,27 @@ python init.py
 
 ## Configuration
 
+### Finding Channel URLs (from Odysee)
+
+1. Go to https://odysee.com
+2. Search for and navigate to the channel you want
+3. Copy the URL from your browser's address bar
+   - Example: `https://odysee.com/@TechChannel:1`
+4. Add it to your config.yaml
+
+### Edit Config File
+
 Edit `~/Documents/lbry-downloads/config.yaml`:
 
 ```yaml
 channels:
   - input: "https://odysee.com/@YourFavoriteChannel:1"
     enabled: true
-  - input: "lbry://@AnotherChannel#5"
+  - input: "https://odysee.com/@AnotherChannel:5"
     enabled: true
 ```
+
+**Tip:** Just paste the Odysee URL exactly as it appears in your browser!
 
 ## Launching
 

@@ -102,6 +102,58 @@ channels:
     enabled: true
 ```
 
+### Finding Channel URLs
+
+**Yes, you can get channel info from Odysee!** Here's how:
+
+#### Method 1: From Odysee Website (Easiest)
+
+1. Go to https://odysee.com
+2. Search for the channel you want to download from
+3. Click on the channel name to go to the channel page
+4. Copy the URL from your browser's address bar
+   - Example: `https://odysee.com/@TechChannel:1`
+   - Example: `https://odysee.com/@DocumentaryFilms:2`
+5. Paste this URL into your config.yaml
+
+#### Method 2: From Any Video Page
+
+1. Find a video from the channel you want
+2. Click on the channel name below the video
+3. Copy the URL from the address bar
+
+#### Method 3: Using LBRY Desktop App
+
+1. Open the LBRY desktop app
+2. Navigate to the channel
+3. Right-click on the channel name
+4. Select "Copy Link" or look at the URL bar
+
+#### URL Formats Supported
+
+The tool accepts multiple URL formats:
+
+```yaml
+channels:
+  # Odysee URL (most common)
+  - input: "https://odysee.com/@ChannelName:1"
+    enabled: true
+  
+  # LBRY URI format
+  - input: "lbry://@ChannelName#1"
+    enabled: true
+  
+  # Short form
+  - input: "@ChannelName:1"
+    enabled: true
+  
+  # Channel claim ID (most stable)
+  - input: "f3b9b2b7c1c3d8e9a1234567890abcdef123456"
+    enabled: true
+```
+
+**Tip:** The Odysee URL is the easiest to find and use. Just copy-paste from your browser!
+
 ### Per-Channel Download Locations
 
 You can specify a custom download location for each channel:

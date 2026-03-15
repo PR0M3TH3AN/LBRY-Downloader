@@ -186,25 +186,103 @@ vim ~/Documents/lbry-downloads/config.yaml
 
 ### 3. Add Your Channels
 
-Edit the `channels:` section:
+**Where to find channel URLs:** From Odysee.com (the main LBRY frontend)
+
+#### Finding Channel URLs on Odysee
+
+**Method 1: Direct from Channel Page (Easiest)**
+
+1. Open your web browser and go to https://odysee.com
+2. Use the search bar to find the channel you want (e.g., "Technology", "Documentaries", "Music")
+3. Click on the channel name or logo to go to the channel page
+4. Look at your browser's address bar - you'll see something like:
+   - `https://odysee.com/@TechChannel:1`
+   - `https://odysee.com/@DocumentaryFilms:2`
+   - `https://odysee.com/@MusicChannel:5`
+5. Copy this entire URL
+6. Paste it into your config.yaml file
+
+**Method 2: From a Video Page**
+
+1. Watch any video from the channel you want to download
+2. Click on the channel name below the video title
+3. This takes you to the channel page
+4. Copy the URL from the address bar
+
+**Method 3: From Search Results**
+
+1. Search for content on Odysee
+2. Look at the channel name next to each video
+3. Click on the channel name
+4. Copy the URL from the address bar
+
+#### Example Channel URLs
+
+Popular channels you might want to download:
 
 ```yaml
 channels:
-  - input: "https://odysee.com/@SomeChannel:1"
+  # Technology channels
+  - input: "https://odysee.com/@LinusTechTips:1"
+    enabled: true
+  
+  # Educational content  
+  - input: "https://odysee.com/@veritasium:1"
+    enabled: true
+  
+  # News/Commentary
+  - input: "https://odysee.com/@Timcast:1"
+    enabled: true
+  
+  # Documentaries
+  - input: "https://odysee.com/@DocumentaryLab:1"
+    enabled: true
+```
+
+#### URL Formats Supported
+
+You can use any of these formats in your config:
+
+```yaml
+channels:
+  # Full Odysee URL (recommended - easiest to copy from browser)
+  - input: "https://odysee.com/@ChannelName:1"
+    enabled: true
+  
+  # LBRY URI format
+  - input: "lbry://@ChannelName#1"
+    enabled: true
+  
+  # Short form (without protocol)
+  - input: "@ChannelName:1"
+    enabled: true
+```
+
+**Recommendation:** Just copy-paste the full Odysee URL from your browser - it's the easiest and most reliable method!
+
+#### Edit the Config File
+
+Once you have your channel URLs, add them to the config:
+
+```bash
+# Open the config file
+nano ~/Documents/lbry-downloads/config.yaml
+```
+
+Add your channels under the `channels:` section:
+
+```yaml
+channels:
+  - input: "https://odysee.com/@YourFavoriteChannel:1"
     enabled: true
     tags_include: []
     tags_exclude: []
   
-  - input: "lbry://@AnotherChannel#5"
+  - input: "https://odysee.com/@AnotherChannel:5"
     enabled: true
     tags_include: []
     tags_exclude: []
 ```
-
-**Finding Channel URLs:**
-- Go to Odysee.com and navigate to a channel
-- Copy the URL from your browser
-- Paste it into the config
 
 ### 4. Configure Per-Channel Download Locations (Optional)
 
