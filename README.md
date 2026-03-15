@@ -17,10 +17,10 @@ A Python tool that incrementally syncs downloadable file claims from configured 
 
 ### One-Line Install (Easiest)
 
-Install with a single command using curl:
+Install with a single command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/PR0M3TH3AN/LBRY-Downloader/main/remote-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/PR0M3TH3AN/LBRY-Downloader/main/remote-install.sh -o install-lbry.sh && bash install-lbry.sh
 ```
 
 **Requirements:** Git and Python 3.8+ must be installed.
