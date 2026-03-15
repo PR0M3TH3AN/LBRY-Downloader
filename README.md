@@ -1,0 +1,215 @@
+# LBRY Downloader
+
+A Python tool that incrementally syncs downloadable file claims from configured LBRY/Odysee channels into a structured local archive.
+
+## Features
+
+- **Incremental Sync**: Only downloads new claims and updated versions
+- **Version Preservation**: Keeps old versions instead of overwriting them
+- **Robust Identity**: Uses stable LBRY claim IDs, not display names or titles
+- **Atomic State**: Database writes are atomic to prevent corruption
+- **Daemon-Based**: Talks directly to local `lbrynet` daemon via JSON-RPC
+- **Flexible Input**: Accepts Odysee URLs, LBRY URIs, or claim IDs
+- **Audit Trail**: Maintains run history in JSONL format
+- **Dry-Run Mode**: Test what would happen without downloading
+
+## Installation
+
+### Easy Install (Recommended)
+
+Run the interactive setup script that handles everything:
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/LBRY-Downloader.git
+cd LBRY-Downloader
+
+# Run the interactive installer
+./setup.py
+```
+
+The setup script will:
+- ✅ Check and install system dependencies
+- ✅ Set up a Python virtual environment
+- ✅ Install Python packages
+- ✅ Ask for your download location
+- ✅ Configure channels to download from
+- ✅ Set download limits
+- ✅ Create launcher scripts
+
+### Manual Install
+
+See [LINUX_SETUP.md](LINUX_SETUP.md) for detailed manual installation instructions.
+
+### Uninstall
+
+To remove LBRY Downloader:
+
+```bash
+./uninstall.py
+```
+
+## Prerequisites
+
+You need to have the LBRY SDK daemon (`lbrynet`) installed and running:
+
+```bash
+# The daemon should be accessible at http://127.0.0.1:5279
+# Check if it's running:
+curl -X POST http://127.0.0.1:5279 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"status","params":{},"id":1}'
+```
+
+To install `lbrynet`, see: https://lbry.com/get
+
+## Configuration
+
+Copy the example config and edit it:
+
+```bash
+cp config.yaml.example ~/Documents/lbry-downloads/config.yaml
+# Edit the file to add your channels
+```
+
+Example configuration:
+
+```yaml
+lbrynet:
+  api_url: "http://127.0.0.1:5279"
+  timeout_seconds: 60
+
+general:
+  base_dir: "~/Documents/lbry-downloads"
+  max_workers: 2
+  dry_run: false
+  include_reposts: false
+
+channels:
+  - input: "https://odysee.com/@SomeChannel:1"
+    enabled: true
+  - input: "lbry://@AnotherChannel#5"
+    enabled: true
+```
+
+### Per-Channel Download Locations
+
+You can specify a custom download location for each channel:
+
+```yaml
+channels:
+  - input: "https://odysee.com/@TechVideos:1"
+    enabled: true
+    download_path: "/mnt/media/tech"  # Downloads go here instead of base_dir
+  
+  - input: "https://odysee.com/@Music:1"
+    enabled: true
+    download_path: "~/Music/LBRY"
+  
+  - input: "https://odysee.com/@DefaultLocation:1"
+    enabled: true
+    # No download_path - uses general.base_dir/channels/
+```
+
+### Download Limit
+
+Limit how many new downloads per channel (downloads most recent first):
+
+```yaml
+general:
+  # Download only 10 most recent items per channel (default)
+  download_limit: 10
+  
+  # Or set to 0 to download everything
+  # download_limit: 0
+```
+
+This is useful for:
+- **Testing**: Download just a few files to verify everything works
+- **Large channels**: Gradually sync channels with thousands of videos
+- **Bandwidth**: Control how much data is downloaded per run
+
+## Usage
+
+```bash
+# Run with default config
+python main.py
+
+# Use custom config
+python main.py --config ./my-config.yaml
+
+# Dry run - see what would happen
+python main.py --dry-run
+```
+
+## Directory Structure
+
+Downloads are organized as:
+
+```
+~/Documents/lbry-downloads/
+  config.yaml
+  state/
+    database.json
+    run-history.jsonl
+  channels/
+    <channel_name>__<channel_claim_id>/
+      channel.json
+      claims/
+        <claim_name>__<claim_id>/
+          claim.json
+          versions/
+            <version_token>/
+              <downloaded_file>
+              metadata.json
+              download.json
+              checksums.txt
+```
+
+## How It Works
+
+1. **Channel Resolution**: Converts URLs/URIs to stable channel claim IDs
+2. **Claim Enumeration**: Paginates through all claims in each channel
+3. **Version Detection**: Uses `sd_hash` to detect updated content
+4. **Smart Skipping**: Only downloads new claims or changed versions
+5. **Metadata Preservation**: Stores normalized metadata beside each file
+
+## State Management
+
+The tool maintains state in `state/database.json`:
+- Tracks which channels have been scanned
+- Records claim metadata and version history
+- Prevents duplicate downloads
+- Detects missing files for re-download
+
+## Troubleshooting
+
+### "Could not connect to LBRY daemon"
+Make sure `lbrynet` is running:
+```bash
+lbrynet start
+```
+
+### "Config file not found"
+Create a config at the default location or specify a path:
+```bash
+python main.py --config ./config.yaml
+```
+
+### Dry run shows no downloads
+Check that your channels are enabled and have downloadable content (streams, not just reposts).
+
+## Architecture
+
+- `main.py` - Entry point and orchestration
+- `lbry_client.py` - JSON-RPC daemon communication
+- `config_loader.py` - Configuration parsing
+- `state_db.py` - Persistent state management
+- `planner.py` - Download decision logic
+- `downloader.py` - Download execution
+- `models.py` - Data structures
+- `utils.py` - Helper functions
+
+## License
+
+MIT License

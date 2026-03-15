@@ -1,0 +1,86 @@
+# LBRY Downloader Configuration
+# Place this file at ~/Documents/lbry-downloads/config.yaml
+# or specify a different path with --config
+
+lbrynet:
+  # URL of the local LBRY daemon (lbrynet)
+  api_url: "http://127.0.0.1:5279"
+  # Timeout for daemon requests in seconds
+  timeout_seconds: 60
+
+general:
+  # Base directory for all downloads and state
+  base_dir: "~/Documents/lbry-downloads"
+  # Path to the state database
+  state_file: "~/Documents/lbry-downloads/state/database.json"
+  # Number of concurrent downloads (keep low to avoid daemon issues)
+  max_workers: 2
+  # Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_level: "INFO"
+  # If true, show what would be downloaded without actually downloading
+  dry_run: false
+  # Verify that previously downloaded files still exist
+  verify_existing_files: true
+  # Write SHA256 checksums for downloaded files
+  write_checksums: true
+  # Filename handling: 'original' or 'safe' (aggressively sanitized)
+  filename_mode: "original"
+  # Include reposts in downloads (default: false)
+  include_reposts: false
+  # Number of claims to fetch per page from the daemon
+  channel_page_size: 50
+  # Keep records of claims even if they disappear from the channel
+  keep_missing_claim_records: true
+  
+  # Download limit: Maximum number of downloads per channel per run
+  # 
+  # This limits how many NEW downloads the tool will perform for each channel
+  # in a single run. Useful for:
+  # - Testing (download just a few files to verify everything works)
+  # - Bandwidth management (don't overwhelm your connection)
+  # - Gradual syncing (download a bit at a time for large channels)
+  #
+  # The tool will download the MOST RECENT items first (sorted by publish date).
+  # 
+  # Values:
+  # - 0 or "all": No limit, download everything new (use with caution on large channels!)
+  # - 1, 2, 3, etc.: Download only this many most recent items per channel
+  #
+  # Examples:
+  # download_limit: 10    # Download only 10 most recent items (default)
+  # download_limit: 0     # Download all new items
+  # download_limit: 5     # Download only 5 most recent items (good for testing)
+  download_limit: 10
+
+channels:
+  # Add your channels here. The tool will download all downloadable content
+  # from each enabled channel.
+  #
+  # Supported input formats:
+  # - Odysee URL: https://odysee.com/@ChannelName:1
+  # - LBRY URI: lbry://@ChannelName#1
+  # - Short form: @ChannelName:1
+  # - Claim ID: f3b9b2b7c1c3d8e9a1234567890abcdef123456
+  #
+  # Per-channel options:
+  # - input:           (required) Channel URL/URI/ID
+  # - enabled:         (optional) true/false - default: true
+  # - download_path:   (optional) Custom download location for this channel
+  #                    If not set, uses general.base_dir/channels/
+  # - tags_include:    (optional) List of tags to include (empty = all)
+  # - tags_exclude:    (optional) List of tags to exclude
+  #
+  # Example 1: Basic channel
+  # - input: "https://odysee.com/@SomeChannel:1"
+  #   enabled: true
+  #
+  # Example 2: Channel with custom download location
+  # - input: "https://odysee.com/@TechChannel:1"
+  #   enabled: true
+  #   download_path: "/mnt/media/videos/tech"
+  #
+  # Example 3: Channel with tag filtering
+  # - input: "lbry://@AnotherChannel#5"
+  #   enabled: true
+  #   tags_include: ["documentary", "science"]
+  #   tags_exclude: ["shorts"]
