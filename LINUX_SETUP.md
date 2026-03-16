@@ -32,14 +32,27 @@ cd LBRY-Downloader
 
 This script will:
 1. Check and install system dependencies
-2. Set up a Python virtual environment
-3. Install Python packages
-4. Ask for your download location
-5. Configure channels to download from
-6. Set download limits
-7. Create launcher scripts
+2. Download and install LBRY SDK (lbrynet) - **No blockchain sync required!**
+3. Set up a Python virtual environment
+4. Install Python packages
+5. Ask for your download location
+6. Configure channels to download from
+7. Set download limits
+8. Create launcher scripts
 
 **Want to uninstall later?** Just run `./uninstall.py`
+
+### About LBRY SDK (lbrynet)
+
+**Q: Does this download the LBRY blockchain?**
+
+**A:** No! The LBRY SDK is a light client that:
+- Connects to LBRY's servers and peer network
+- Downloads only the content you request
+- Does **NOT** require blockchain synchronization (unlike Bitcoin)
+- Uses minimal disk space (just the downloaded content)
+
+The LBRY SDK acts like a specialized download manager for the LBRY network, not a full blockchain node.
 
 ---
 
