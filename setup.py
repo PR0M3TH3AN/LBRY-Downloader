@@ -405,13 +405,54 @@ def create_launcher_script(install_dir: Path, venv_path: Path) -> None:
     bin_dir = install_dir / "bin"
     bin_dir.mkdir(exist_ok=True)
 
-    # Create main launcher
+    # Create main launcher with daemon auto-check
     launcher = bin_dir / "lbry-downloader"
     launcher_content = f"""#!/bin/bash
 # LBRY Downloader Launcher
+# Auto-checks and starts lbrynet daemon if needed
 
 INSTALL_DIR="{install_dir}"
 VENV_DIR="{venv_path}"
+DAEMON_URL="http://127.0.0.1:5279"
+
+# Check if daemon is running
+if ! curl -s "$DAEMON_URL" > /dev/null 2>&1; then
+    echo "LBRY daemon not running. Starting..."
+    
+    # Try to start daemon
+    if command -v lbrynet &> /dev/null; then
+        lbrynet start &
+        echo "Waiting for daemon to start..."
+        
+        # Wait up to 30 seconds for daemon
+        for i in $(seq 1 30); do
+            if curl -s "$DAEMON_URL" > /dev/null 2>&1; then
+                echo "✓ Daemon started successfully"
+                break
+            fi
+            sleep 1
+        done
+        
+        # Check if daemon started
+        if ! curl -s "$DAEMON_URL" > /dev/null 2>&1; then
+            echo "✗ Failed to start daemon automatically"
+            echo ""
+            echo "Please start it manually:"
+            echo "  lbrynet start"
+            echo ""
+            echo "Or see LINUX_SETUP.md for installation instructions"
+            exit 1
+        fi
+    else
+        echo "✗ lbrynet not found in PATH"
+        echo ""
+        echo "Please install LBRY SDK:"
+        echo "  https://github.com/lbryio/lbry-sdk/releases"
+        echo ""
+        echo "Or see LINUX_SETUP.md for detailed instructions"
+        exit 1
+    fi
+fi
 
 cd "$INSTALL_DIR"
 source "$VENV_DIR/bin/activate"
@@ -423,13 +464,37 @@ python main.py "$@"
     launcher.chmod(0o755)
     print_success(f"Created launcher: {launcher}")
 
-    # Create quick test script
+    # Create quick test script with daemon auto-check
     test_script = bin_dir / "lbry-test"
     test_content = f"""#!/bin/bash
 # Quick test script
 
 INSTALL_DIR="{install_dir}"
 VENV_DIR="{venv_path}"
+DAEMON_URL="http://127.0.0.1:5279"
+
+# Check if daemon is running
+if ! curl -s "$DAEMON_URL" > /dev/null 2>&1; then
+    echo "LBRY daemon not running. Starting..."
+    
+    if command -v lbrynet &> /dev/null; then
+        lbrynet start &
+        echo "Waiting for daemon to start..."
+        sleep 5
+        
+        if curl -s "$DAEMON_URL" > /dev/null 2>&1; then
+            echo "✓ Daemon started"
+        else
+            echo "✗ Failed to start daemon"
+            echo "Run manually: lbrynet start"
+            exit 1
+        fi
+    else
+        echo "✗ lbrynet not found. Install from:"
+        echo "  https://github.com/lbryio/lbry-sdk/releases"
+        exit 1
+    fi
+fi
 
 cd "$INSTALL_DIR"
 source "$VENV_DIR/bin/activate"
