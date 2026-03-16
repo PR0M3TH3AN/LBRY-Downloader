@@ -59,46 +59,34 @@ class Downloader:
 
         try:
             # Call daemon to download
+            logger.info(f"Starting download: {action.claim_name}")
             result = self.client.get(
                 uri=action.uri,
                 download_directory=str(version_dir),
             )
 
-            # Wait a moment for download to start and get file info
-            import time
-
-            time.sleep(2)
-
-            # Try to find the downloaded file - daemon may return different structures
-            file_info = None
             claim_id = result.get("claim_id") or action.claim_id
 
-            # Try multiple times to get file info
-            for attempt in range(5):
-                file_info = self._extract_file_info(result, claim_id)
-                if file_info and file_info.get("download_path"):
-                    break
-                # Wait and try file_list
-                time.sleep(1)
-                if claim_id:
-                    file_info = self._extract_file_info({}, claim_id)
-                    if file_info and file_info.get("download_path"):
-                        break
+            # Wait for download to complete - this can take time
+            logger.info(f"Waiting for download to complete...")
+            file_info = self._wait_for_download(claim_id, version_dir, timeout=300)
 
-            if not file_info or not file_info.get("download_path"):
+            if not file_info:
                 logger.warning(
-                    f"Could not get file path for {action.claim_name}, using metadata only"
+                    f"Download incomplete for {action.claim_name}, saving metadata only"
                 )
-                # Write what we have even without the file
+                # Write metadata even if download didn't complete
                 self._write_metadata(
                     version_dir,
                     action,
                     {"download_path": None, "file_name": action.claim_name},
                 )
                 self._write_download_json(version_dir, result)
-                return True
+                return False
 
-            download_path_str = file_info["download_path"]
+            download_path_str = file_info.get("download_path") or file_info.get(
+                "file_name"
+            )
             if not download_path_str:
                 raise DownloadError("Download path is empty")
 
@@ -108,7 +96,7 @@ class Downloader:
             if not downloaded_path.exists():
                 logger.warning(f"File not found at expected path: {downloaded_path}")
                 # Try to find it in the version_dir
-                files = list(version_dir.glob("*"))
+                files = [f for f in version_dir.glob("*") if f.is_file() and f.suffix]
                 if files:
                     downloaded_path = files[0]
                     logger.info(f"Found file in version dir: {downloaded_path.name}")
@@ -179,6 +167,70 @@ class Downloader:
             except Exception as e:
                 logger.debug(f"Could not get file list: {e}")
 
+        return None
+
+    def _wait_for_download(
+        self, claim_id: str, version_dir: Path, timeout: int = 300
+    ) -> Optional[Dict]:
+        """
+        Wait for download to complete and return file info.
+
+        Args:
+            claim_id: The claim ID to wait for
+            version_dir: Directory where file should appear
+            timeout: Maximum time to wait in seconds
+
+        Returns:
+            File info dict if download completes, None otherwise
+        """
+        start_time = time.time()
+        check_interval = 5  # Check every 5 seconds
+
+        logger.info(f"Waiting up to {timeout}s for download to complete...")
+
+        while time.time() - start_time < timeout:
+            # Check if file appeared in version_dir
+            files = [
+                f for f in version_dir.glob("*") if f.is_file() and f.stat().st_size > 0
+            ]
+            if files:
+                file_path = files[0]
+                logger.info(f"File appeared: {file_path.name}")
+                return {
+                    "download_path": str(file_path),
+                    "file_name": file_path.name,
+                    "size": file_path.stat().st_size,
+                }
+
+            # Check daemon's file list
+            try:
+                file_list = self.client.file_list(claim_id=claim_id)
+                if "items" in file_list and file_list["items"]:
+                    file_info = file_list["items"][0]
+                    download_path = file_info.get("download_path") or file_info.get(
+                        "file_name"
+                    )
+                    if download_path:
+                        path = Path(download_path)
+                        if path.exists() and path.stat().st_size > 0:
+                            logger.info(f"Download complete via file_list: {path.name}")
+                            return file_info
+                        elif path.exists():
+                            logger.debug(
+                                f"File exists but size is 0, still downloading..."
+                            )
+                        else:
+                            logger.debug(f"File not yet at path: {path}")
+            except Exception as e:
+                logger.debug(f"Could not check file_list: {e}")
+
+            # Wait before checking again
+            time.sleep(check_interval)
+            elapsed = int(time.time() - start_time)
+            if elapsed % 30 == 0:  # Log every 30 seconds
+                logger.info(f"Still waiting for download... ({elapsed}s elapsed)")
+
+        logger.warning(f"Download timed out after {timeout}s")
         return None
 
     def _write_metadata(

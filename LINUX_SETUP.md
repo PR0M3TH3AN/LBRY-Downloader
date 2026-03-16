@@ -649,6 +649,46 @@ mkdir -p ~/Documents/lbry-downloads/channels
 cp config.yaml.example ~/Documents/lbry-downloads/config.yaml
 ```
 
+### Downloads not completing ("stopping inactive download")
+
+If you see folder structure and JSON files but no actual video/content files:
+
+**What's happening:**
+- The tool creates metadata immediately
+- But the actual download depends on finding peers with the file
+- If no peers are available, the download can't complete
+
+**To fix/improve:**
+
+1. **Wait longer** - Downloads can take time to find peers:
+```bash
+# Increase download timeout in config.yaml
+general:
+  timeout_seconds: 600  # Wait up to 10 minutes per file
+```
+
+2. **Use Odysee's web player first** - This can help seed the content:
+   - Go to https://odysee.com
+   - Play the video you want to download
+   - This connects you to Odysee's CDN nodes
+   - Then run the downloader again
+
+3. **Run the LBRY Desktop app** - It has better DHT connectivity:
+   - Download from: https://lbry.com/get
+   - Let it run for a while to build peer connections
+   - Then run lbry-downloader
+
+4. **Check daemon file list** - See if files are partially downloaded:
+```bash
+lbrynet file list
+```
+
+5. **Try at different times** - Peer availability varies:
+   - Some content is only available during peak hours
+   - Try downloading during evening hours (US time)
+
+**Note:** LBRY is a peer-to-peer network. If the original uploader or other users aren't currently online with the file, you won't be able to download it. This is different from centralized platforms like YouTube.
+
 ### Downloads are slow
 
 LBRY downloads can be slow depending on network conditions. This is normal:
