@@ -69,6 +69,62 @@ fi
 
 print_status "Python $PYTHON_VERSION found"
 
+# Check if lbrynet is installed
+if ! command -v lbrynet &> /dev/null; then
+    print_warning "LBRY SDK (lbrynet) not found"
+    echo ""
+    echo "The LBRY SDK is required to download content from the LBRY network."
+    echo "It can be downloaded from: https://github.com/lbryio/lbry-sdk/releases"
+    echo ""
+    read -p "Download and install lbrynet automatically? (Y/n): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        print_status "Installing LBRY SDK..."
+        
+        # Create bin directory
+        mkdir -p ~/.local/bin
+        
+        # Download latest lbrynet for Linux
+        LBRY_VERSION="0.113.0"
+        DOWNLOAD_URL="https://github.com/lbryio/lbry-sdk/releases/download/v${LBRY_VERSION}/lbry-sdk-linux.zip"
+        
+        cd ~/.local/bin
+        if wget -q --show-progress "$DOWNLOAD_URL" 2>&1 | tail -5; then
+            print_status "Downloaded lbrynet"
+            
+            # Extract
+            if unzip -q lbry-sdk-linux.zip; then
+                rm lbry-sdk-linux.zip
+                chmod +x lbrynet
+                print_status "Extracted lbrynet"
+                
+                # Add to PATH if not already there
+                if ! echo "$PATH" | grep -q "$HOME/.local/bin"; then
+                    echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+                    print_status "Added ~/.local/bin to PATH"
+                    export PATH="$HOME/.local/bin:$PATH"
+                fi
+                
+                print_status "LBRY SDK installed successfully!"
+            else
+                print_error "Failed to extract lbrynet"
+            fi
+        else
+            print_error "Failed to download lbrynet"
+            echo "Please install manually from:"
+            echo "  https://github.com/lbryio/lbry-sdk/releases"
+        fi
+        
+        # Return to original directory
+        cd - > /dev/null
+    else
+        print_warning "Skipping lbrynet installation"
+        echo "You'll need to install it manually before using the downloader"
+    fi
+else
+    print_status "lbrynet found at: $(which lbrynet)"
+fi
+
 # Check if running in interactive mode
 INTERACTIVE=false
 if [ -t 0 ]; then
@@ -116,16 +172,18 @@ echo ""
 echo "1️⃣  Reload your shell (IMPORTANT):"
 echo "    source ~/.bashrc"
 echo ""
-echo "2️⃣  Start the LBRY daemon:"
-echo "    lbrynet start"
-echo ""
-echo "3️⃣  Test the downloader:"
+echo "2️⃣  Test the downloader (daemon starts automatically):"
 echo "    lbry-downloader --dry-run"
 echo ""
-echo "4️⃣  Download content:"
+echo "3️⃣  Download content:"
 echo "    lbry-downloader"
 echo ""
 echo "💡 If 'lbry-downloader' command not found after reload, use:"
+echo "    ~/Documents/LBRY-Downloader/bin/lbry-downloader"
+echo ""
+echo "⚠️  If lbrynet was not installed automatically, install it from:"
+echo "    https://github.com/lbryio/lbry-sdk/releases"
+echo "    Then run: lbrynet start"
 echo "    ~/Documents/LBRY-Downloader/bin/lbry-downloader"
 echo ""
 echo "📁 Config file: ~/Documents/lbry-downloads/config.yaml"
