@@ -200,7 +200,7 @@ class DirectDownloader:
         self, url: str, version_dir: Path, claim_name: str
     ) -> Optional[Path]:
         """
-        Download file from URL to version directory.
+        Download file from URL to version directory with progress bar.
 
         Args:
             url: Download URL
@@ -215,7 +215,10 @@ class DirectDownloader:
             filename = self._extract_filename(url, claim_name)
             file_path = version_dir / filename
 
-            logger.info(f"Downloading to: {file_path}")
+            # Print clear message with filename
+            print(f"\n📥 Downloading: {claim_name}")
+            print(f"   Filename: {filename}")
+            print(f"   Destination: {file_path.parent}")
 
             # Stream download with progress
             response = self.session.get(url, stream=True, timeout=300)
@@ -223,30 +226,92 @@ class DirectDownloader:
 
             total_size = int(response.headers.get("content-length", 0))
 
+            if total_size > 0:
+                size_mb = total_size / (1024 * 1024)
+                print(f"   Size: {size_mb:.2f} MB")
+            else:
+                print(f"   Size: Unknown")
+            print()
+
+            start_time = time.time()
+            last_update = start_time
+            downloaded = 0
+            chunk_size = 8192
+
             with open(file_path, "wb") as f:
-                downloaded = 0
-                for chunk in response.iter_content(chunk_size=8192):
+                for chunk in response.iter_content(chunk_size=chunk_size):
                     if chunk:
                         f.write(chunk)
                         downloaded += len(chunk)
 
-                        # Log progress every 10%
-                        if total_size > 0 and downloaded % (total_size // 10) < 8192:
-                            percent = (downloaded / total_size) * 100
-                            logger.info(f"Download progress: {percent:.0f}%")
+                        # Update progress bar every 0.5 seconds
+                        current_time = time.time()
+                        if current_time - last_update >= 0.5:
+                            self._print_progress_bar(
+                                downloaded, total_size, start_time, claim_name
+                            )
+                            last_update = current_time
+
+                # Final progress update
+                self._print_progress_bar(
+                    downloaded, total_size, start_time, claim_name, final=True
+                )
+                print()  # New line after progress bar
 
             # Verify file was downloaded
             if file_path.exists() and file_path.stat().st_size > 0:
                 size_mb = file_path.stat().st_size / (1024 * 1024)
-                logger.info(f"Download complete: {size_mb:.2f} MB")
+                elapsed = time.time() - start_time
+                speed_mbps = (size_mb / elapsed) if elapsed > 0 else 0
+                print(f"✅ Complete: {size_mb:.2f} MB @ {speed_mbps:.2f} MB/s\n")
                 return file_path
             else:
-                logger.error("Downloaded file is empty")
+                print(f"❌ Error: Downloaded file is empty\n")
                 return None
 
         except Exception as e:
+            print(f"❌ Error downloading {claim_name}: {e}\n")
             logger.error(f"Error downloading file: {e}")
             return None
+
+    def _print_progress_bar(
+        self,
+        downloaded: int,
+        total_size: int,
+        start_time: float,
+        claim_name: str,
+        final: bool = False,
+    ):
+        """Print a progress bar to the console."""
+        if total_size > 0:
+            percent = min(100, int((downloaded / total_size) * 100))
+            filled = int(50 * percent / 100)
+            bar = "█" * filled + "░" * (50 - filled)
+
+            # Calculate speed
+            elapsed = time.time() - start_time
+            if elapsed > 0:
+                speed_mbps = (downloaded / (1024 * 1024)) / elapsed
+                speed_str = f"{speed_mbps:.2f} MB/s"
+            else:
+                speed_str = "calculating..."
+
+            # Calculate ETA
+            if not final and speed_mbps > 0:
+                remaining = (total_size - downloaded) / (1024 * 1024)
+                eta = remaining / speed_mbps
+                eta_str = f"ETA: {int(eta)}s"
+            else:
+                eta_str = ""
+
+            # Clear line and print progress
+            print(
+                f"\r   [{bar}] {percent}% | {speed_str} | {eta_str}", end="", flush=True
+            )
+        else:
+            # Unknown size, just show downloaded amount
+            downloaded_mb = downloaded / (1024 * 1024)
+            print(f"\r   Downloaded: {downloaded_mb:.2f} MB", end="", flush=True)
 
     def _extract_filename(self, url: str, claim_name: str) -> str:
         """Extract filename from URL or use claim name."""
