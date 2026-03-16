@@ -48,7 +48,13 @@ The setup script will:
 - ✅ Set download limits
 - ✅ Create launcher scripts
 
-**Note:** The LBRY SDK is a light client - it connects to the network and downloads content **without** needing to sync the entire blockchain (unlike Bitcoin). It only downloads the content you request.
+**Important:** The LBRY SDK (lbrynet) requires syncing blockchain **headers** (not full blocks) to function. On first run:
+- Downloads ~1.7 million block headers (takes 5-10 minutes)
+- Uses minimal storage (headers only, not full blockchain)
+- Subsequent starts are instant
+- This is required to verify content claims on the network
+
+This is lighter than Bitcoin's full blockchain sync, but still necessary for the downloader to work.
 
 ### Manual Install
 

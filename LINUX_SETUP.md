@@ -42,17 +42,29 @@ This script will:
 
 **Want to uninstall later?** Just run `./uninstall.py`
 
-### About LBRY SDK (lbrynet)
+### About LBRY SDK (lbrynet) - IMPORTANT
 
 **Q: Does this download the LBRY blockchain?**
 
-**A:** No! The LBRY SDK is a light client that:
-- Connects to LBRY's servers and peer network
-- Downloads only the content you request
-- Does **NOT** require blockchain synchronization (unlike Bitcoin)
-- Uses minimal disk space (just the downloaded content)
+**A:** The LBRY SDK downloads **blockchain headers** (not full blocks), which is required to function:
 
-The LBRY SDK acts like a specialized download manager for the LBRY network, not a full blockchain node.
+**First-time setup (one-time):**
+- Downloads ~1.7 million block headers
+- Takes approximately 5-10 minutes
+- Uses minimal storage space (headers only, not full blocks)
+- Shows progress like: `lbc_mainnet: added BlockHeightEvent(height=1663209, change=2001)`
+
+**Subsequent use:**
+- Near-instant startup after initial sync
+- Only downloads new headers since last run
+
+**What this means:**
+- The LBRY SDK needs this data to verify which content claims are valid
+- This is lighter than Bitcoin's full blockchain sync
+- But it IS required and will take time on first launch
+- You can stop it with `Ctrl+C` or `lbrynet stop`
+
+**Privacy note:** This connects to LBRY's network and syncs blockchain data to verify content. This is how the LBRY protocol works.
 
 ---
 
@@ -566,6 +578,37 @@ ss -tlnp | grep 5279
 # Check daemon logs (if running as systemd)
 sudo journalctl -u lbrynet -n 50
 ```
+
+### "lbc_mainnet: added BlockHeightEvent" - What's happening?
+
+**This is normal!** On first run, lbrynet syncs blockchain headers:
+
+```
+lbc_mainnet: added BlockHeightEvent(height=1663209, change=2001)
+lbc_mainnet: added BlockHeightEvent(height=1665210, change=2001)
+```
+
+**What this means:**
+- The LBRY SDK is downloading blockchain headers (not full blocks)
+- This is required to verify content claims
+- Takes 5-10 minutes on first run
+- Subsequent runs are instant
+
+**To stop it:**
+```bash
+# Stop the daemon
+lbrynet stop
+
+# Or kill the process
+pkill -f lbrynet
+```
+
+**To check sync progress:**
+```bash
+lbrynet status
+```
+
+**Note:** This is a one-time process. Once complete, the daemon starts instantly.
 
 ### "Permission denied" when running lbrynet
 
