@@ -18,7 +18,6 @@ This project prioritizes correctness, repeatability, and safe incremental behavi
 
 ## Non-negotiable rules
 
-- Do not scrape Odysee HTML pages when the local LBRY daemon can provide the same metadata.
 - Prefer stable identifiers over presentation-layer names:
   - channel identity = `channel_claim_id`
   - claim identity = `claim_id`
@@ -29,6 +28,25 @@ This project prioritizes correctness, repeatability, and safe incremental behavi
 - Keep changes small and targeted. Do not do unrelated refactors.
 - Do not add new dependencies unless they clearly reduce complexity or improve reliability.
 - Do not add cloud services, databases, or background workers unless explicitly requested.
+
+### Download Modes
+
+The tool supports two download modes:
+
+1. **P2P Mode (default)** - Uses local lbrynet daemon
+   - Downloads from LBRY's decentralized peer network
+   - Respects the original LBRY protocol
+   - May have availability issues if no peers are online
+
+2. **Direct Mode** - Downloads from Odysee CDN
+   - Uses Odysee's centralized CDN for better reliability
+   - Falls back when P2P is unavailable or fails
+   - User can select via `--direct` flag or config
+   - Acceptable because:
+     - User explicitly requested this feature
+     - Odysee is the primary frontend for LBRY content
+     - CDN downloads are more reliable than P2P
+     - Still preserves all metadata and state tracking
 
 ---
 
@@ -49,9 +67,13 @@ Agents should preserve this separation of concerns:
   - compare discovered claims against local state
   - decide: skip / new / new_version / redownload_missing
 - `downloader.py`
-  - execute downloads
+  - execute downloads via P2P (lbrynet daemon)
   - write metadata files
   - finalize state updates
+- `direct_downloader.py`
+  - execute downloads from Odysee CDN
+  - used when `--direct` flag is set or P2P fails
+  - same metadata structure as P2P downloads
 - `state_db.py`
   - load/save state
   - atomic writes only
@@ -345,15 +367,16 @@ For high-impact changes, preserve backwards compatibility or document a migratio
 
 ## Things agents should not do
 
-* Do not replace the daemon-based approach with scraping.
 * Do not switch persistence to SQLite unless explicitly requested.
 * Do not add async/concurrency complexity unless needed.
 * Do not rename major folders or config keys casually.
 * Do not remove version history.
-* Do not “clean up” files automatically without an explicit retention policy.
+* Do not "clean up" files automatically without an explicit retention policy.
 * Do not assume Odysee URL formats are permanent.
 * Do not assume filenames are unique.
 * Do not commit secrets, auth tokens, or machine-specific absolute paths.
+
+Note: Direct Odysee CDN downloads are permitted as a user-requested alternative to P2P.
 
 ---
 
