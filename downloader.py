@@ -3,6 +3,7 @@
 import json
 import logging
 import shutil
+import time
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -63,12 +64,56 @@ class Downloader:
                 download_directory=str(version_dir),
             )
 
-            # Find the downloaded file
-            file_info = self._extract_file_info(result)
-            if not file_info:
-                raise DownloadError("No file info in download result")
+            # Wait a moment for download to start and get file info
+            import time
 
-            downloaded_path = Path(file_info["download_path"])
+            time.sleep(2)
+
+            # Try to find the downloaded file - daemon may return different structures
+            file_info = None
+            claim_id = result.get("claim_id") or action.claim_id
+
+            # Try multiple times to get file info
+            for attempt in range(5):
+                file_info = self._extract_file_info(result, claim_id)
+                if file_info and file_info.get("download_path"):
+                    break
+                # Wait and try file_list
+                time.sleep(1)
+                if claim_id:
+                    file_info = self._extract_file_info({}, claim_id)
+                    if file_info and file_info.get("download_path"):
+                        break
+
+            if not file_info or not file_info.get("download_path"):
+                logger.warning(
+                    f"Could not get file path for {action.claim_name}, using metadata only"
+                )
+                # Write what we have even without the file
+                self._write_metadata(
+                    version_dir,
+                    action,
+                    {"download_path": None, "file_name": action.claim_name},
+                )
+                self._write_download_json(version_dir, result)
+                return True
+
+            download_path_str = file_info["download_path"]
+            if not download_path_str:
+                raise DownloadError("Download path is empty")
+
+            downloaded_path = Path(download_path_str)
+
+            # Check if file exists
+            if not downloaded_path.exists():
+                logger.warning(f"File not found at expected path: {downloaded_path}")
+                # Try to find it in the version_dir
+                files = list(version_dir.glob("*"))
+                if files:
+                    downloaded_path = files[0]
+                    logger.info(f"Found file in version dir: {downloaded_path.name}")
+                else:
+                    raise DownloadError(f"Downloaded file not found")
 
             # If file was downloaded to a different location, move it
             if downloaded_path.parent != version_dir:
@@ -81,12 +126,16 @@ class Downloader:
             self._write_download_json(version_dir, result)
 
             # Write checksum if enabled
-            if self.config.general.write_checksums:
+            if self.config.general.write_checksums and downloaded_path.exists():
                 self._write_checksum(version_dir, downloaded_path)
 
             # Update action metadata with file path
-            rel_path = downloaded_path.relative_to(self.base_dir)
-            action.metadata["local_file_path"] = str(rel_path)
+            try:
+                rel_path = downloaded_path.relative_to(self.base_dir)
+                action.metadata["local_file_path"] = str(rel_path)
+            except ValueError:
+                # If not relative to base_dir, store absolute path
+                action.metadata["local_file_path"] = str(downloaded_path)
 
             logger.info(f"Downloaded: {action.claim_name} -> {downloaded_path.name}")
             return True
@@ -95,7 +144,9 @@ class Downloader:
             logger.error(f"Download failed for {action.claim_name}: {e}")
             raise DownloadError(f"Download failed: {e}")
 
-    def _extract_file_info(self, result: Dict) -> Optional[Dict]:
+    def _extract_file_info(
+        self, result: Dict, claim_id: Optional[str] = None
+    ) -> Optional[Dict]:
         """
         Extract file information from download result.
 
@@ -103,7 +154,7 @@ class Downloader:
         whether the file was already downloaded.
         """
         # Direct file result
-        if "download_path" in result:
+        if "download_path" in result and result["download_path"]:
             return result
 
         # Nested in outputs
@@ -120,10 +171,13 @@ class Downloader:
                     }
 
         # Try to get from file_list
-        if "claim_id" in result:
-            file_list = self.client.file_list(claim_id=result["claim_id"])
-            if "items" in file_list and file_list["items"]:
-                return file_list["items"][0]
+        if claim_id:
+            try:
+                file_list = self.client.file_list(claim_id=claim_id)
+                if "items" in file_list and file_list["items"]:
+                    return file_list["items"][0]
+            except Exception as e:
+                logger.debug(f"Could not get file list: {e}")
 
         return None
 
