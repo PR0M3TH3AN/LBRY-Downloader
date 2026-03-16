@@ -589,19 +589,64 @@ def run_setup() -> None:
         print_error("Failed to install Python dependencies")
         sys.exit(1)
 
-    # Get configuration from user
-    download_location = get_download_location()
-    channels = get_channels()
-    download_limit = get_download_limit()
+    # Check for existing configuration
+    default_download_location = "~/Documents/lbry-downloads"
+    config_path = Path(default_download_location).expanduser() / "config.yaml"
 
-    # Create config file
-    print_header("Creating Configuration")
-    config_content = create_config(download_location, channels, download_limit)
+    if config_path.exists():
+        print_header("Existing Configuration Found")
+        print_info(f"Found existing config: {config_path}")
+        print_info("This will preserve your channels and settings")
 
-    config_path = Path(download_location).expanduser() / "config.yaml"
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    config_path.write_text(config_content)
-    print_success(f"Created configuration: {config_path}")
+        response = input("Use existing configuration? (Y/n): ").strip().lower()
+        if response != "n":
+            print_success("Using existing configuration")
+            download_location = default_download_location
+            # Ensure necessary directories exist
+            Path(download_location).expanduser().mkdir(parents=True, exist_ok=True)
+            (Path(download_location).expanduser() / "state").mkdir(exist_ok=True)
+            (Path(download_location).expanduser() / "channels").mkdir(exist_ok=True)
+            # Store config_path for final message
+            config_path = Path(download_location).expanduser() / "config.yaml"
+        else:
+            # User wants to reconfigure
+            download_location = get_download_location()
+            channels = get_channels()
+            download_limit = get_download_limit()
+
+            # Create config file
+            print_header("Creating Configuration")
+            config_content = create_config(download_location, channels, download_limit)
+
+            config_path = Path(download_location).expanduser() / "config.yaml"
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            config_path.write_text(config_content)
+            print_success(f"Created configuration: {config_path}")
+
+            # Create necessary directories
+            (config_path.parent / "state").mkdir(exist_ok=True)
+            (config_path.parent / "channels").mkdir(exist_ok=True)
+            print_success("Created directory structure")
+    else:
+        # No existing config, proceed with normal setup
+        # Get configuration from user
+        download_location = get_download_location()
+        channels = get_channels()
+        download_limit = get_download_limit()
+
+        # Create config file
+        print_header("Creating Configuration")
+        config_content = create_config(download_location, channels, download_limit)
+
+        config_path = Path(download_location).expanduser() / "config.yaml"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(config_content)
+        print_success(f"Created configuration: {config_path}")
+
+        # Create necessary directories
+        (config_path.parent / "state").mkdir(exist_ok=True)
+        (config_path.parent / "channels").mkdir(exist_ok=True)
+        print_success("Created directory structure")
 
     # Create necessary directories
     (config_path.parent / "state").mkdir(exist_ok=True)
