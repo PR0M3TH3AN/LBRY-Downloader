@@ -11,6 +11,11 @@ from lbry_client import LbryClient
 from models import Config, DownloadAction
 from utils import compute_sha256
 
+try:
+    import requests
+except ImportError:
+    requests = None
+
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +63,7 @@ class Downloader:
         logger.info(f"Downloading: {action.claim_name}")
 
         try:
-            # Call daemon to download
+            # Call daemon to start P2P download
             logger.info(f"Starting download: {action.claim_name}")
             result = self.client.get(
                 uri=action.uri,
@@ -66,23 +71,41 @@ class Downloader:
             )
 
             claim_id = result.get("claim_id") or action.claim_id
+            sd_hash = result.get("sd_hash") or action.metadata.get("sd_hash")
 
             # Wait for download to complete - this can take time
             logger.info(f"Waiting for download to complete...")
-            file_info = self._wait_for_download(claim_id, version_dir, timeout=300)
+            file_info = self._wait_for_download(claim_id, version_dir, timeout=60)
 
             if not file_info:
-                logger.warning(
-                    f"Download incomplete for {action.claim_name}, saving metadata only"
+                logger.info(
+                    f"P2P download incomplete, trying daemon streaming endpoint..."
                 )
-                # Write metadata even if download didn't complete
-                self._write_metadata(
-                    version_dir,
-                    action,
-                    {"download_path": None, "file_name": action.claim_name},
+                # Try streaming endpoint if P2P fails
+                target_file = version_dir / (
+                    action.metadata.get("source_name") or f"{action.claim_name}.zip"
                 )
-                self._write_download_json(version_dir, result)
-                return False
+                if sd_hash and self._download_via_streaming(
+                    sd_hash, target_file, result, action
+                ):
+                    file_info = {
+                        "download_path": str(target_file),
+                        "file_name": target_file.name,
+                        "size": target_file.stat().st_size,
+                        "media_type": result.get("mime_type"),
+                    }
+                else:
+                    logger.warning(
+                        f"Download failed for {action.claim_name} - P2P peers not available"
+                    )
+                    # Write metadata even if download didn't complete
+                    self._write_metadata(
+                        version_dir,
+                        action,
+                        {"download_path": None, "file_name": action.claim_name},
+                    )
+                    self._write_download_json(version_dir, result)
+                    return False
 
             download_path_str = file_info.get("download_path") or file_info.get(
                 "file_name"
@@ -232,6 +255,70 @@ class Downloader:
 
         logger.warning(f"Download timed out after {timeout}s")
         return None
+
+    def _download_via_streaming(
+        self, sd_hash: str, target_path: Path, file_info: Dict, action: DownloadAction
+    ) -> bool:
+        """
+        Download file using daemon's streaming endpoint.
+
+        This is more reliable than P2P when peers are unavailable.
+        The daemon fetches the content and serves it via local HTTP.
+
+        Args:
+            sd_hash: The SD hash from the claim
+            target_path: Where to save the file
+            file_info: File metadata from daemon
+            action: Download action
+
+        Returns:
+            True if download succeeded
+        """
+        if not sd_hash or not requests:
+            return False
+
+        # Build streaming URL from daemon API URL
+        streaming_url = f"http://localhost:5280/stream/{sd_hash}"
+
+        logger.info(f"Downloading via daemon streaming endpoint...")
+
+        try:
+            response = requests.get(streaming_url, stream=True, timeout=300)
+            response.raise_for_status()
+
+            total_size = int(response.headers.get("content-length", 0))
+            downloaded = 0
+            chunk_size = 8192
+
+            print(f"\n📥 Downloading: {action.claim_name}")
+            print(f"   Size: {total_size / (1024 * 1024):.2f} MB")
+            print()
+
+            with open(target_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=chunk_size):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded += len(chunk)
+
+                        if total_size > 0:
+                            percent = min(100, int((downloaded / total_size) * 100))
+                            filled = int(40 * percent / 100)
+                            bar = "█" * filled + "░" * (40 - filled)
+                            print(f"\r   [{bar}] {percent}%", end="", flush=True)
+
+            print()  # New line after progress
+            print(f"   ✅ Download complete: {target_path.name}")
+
+            # Update file_info with actual path
+            file_info["download_path"] = str(target_path)
+            file_info["file_name"] = target_path.name
+            file_info["written_bytes"] = target_path.stat().st_size
+
+            return True
+
+        except Exception as e:
+            logger.warning(f"Streaming download failed: {e}")
+            return False
 
     def _write_metadata(
         self,
