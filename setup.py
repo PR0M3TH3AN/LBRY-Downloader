@@ -442,16 +442,26 @@ python main.py --dry-run "$@"
     test_script.chmod(0o755)
     print_success(f"Created test script: {test_script}")
 
-    # Check if we should add to PATH
+    # Automatically add to PATH and reload shell
     shell_rc = Path.home() / ".bashrc"
     if not shell_rc.exists():
         shell_rc = Path.home() / ".zshrc"
 
     if shell_rc.exists():
-        print_info(
-            f"To use 'lbry-downloader' from anywhere, add this to your {shell_rc.name}:"
-        )
-        print(f'  export PATH="{bin_dir}:$PATH"')
+        # Check if already in PATH
+        path_line = f'export PATH="{bin_dir}:$PATH"'
+        try:
+            rc_content = shell_rc.read_text()
+            if str(bin_dir) not in rc_content:
+                with open(shell_rc, "a") as f:
+                    f.write(f"\n# LBRY Downloader\n{path_line}\n")
+                print_success(f"Added to PATH in {shell_rc.name}")
+            else:
+                print_info(f"Already in PATH ({shell_rc.name})")
+        except Exception as e:
+            print_warning(f"Could not update {shell_rc.name}: {e}")
+            print_info(f"Add this line manually to {shell_rc.name}:")
+            print(f"  {path_line}")
 
 
 def run_setup() -> None:
@@ -542,40 +552,46 @@ def run_setup() -> None:
 ║                    Setup Complete!                           ║
 ╚══════════════════════════════════════════════════════════════╝{Colors.END}
 
-Next steps:
+🎉 LBRY Downloader is ready to use!
 
-1. Start the LBRY daemon:
-   lbrynet start
-   
-   (If lbrynet is not installed, see LINUX_SETUP.md)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 QUICK START (Run these commands):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-2. Test the configuration:
-   cd {install_dir}
-   ./bin/lbry-test
-   
-   Or run directly:
-   source venv/bin/activate
-   python main.py --dry-run
+1️⃣  Start the LBRY daemon:
+    lbrynet start
 
-3. Run the downloader:
-   ./bin/lbry-downloader
-   
-   Or:
-   python main.py
+2️⃣  Test your configuration:
+    lbry-downloader --dry-run
 
-Configuration file:
-   {config_path}
+3️⃣  Download content:
+    lbry-downloader
 
-To add more channels later, edit the config file:
-   nano {config_path}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ℹ️  IMPORTANT NOTES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Documentation:
-   - README.md - Project overview
-   - LINUX_SETUP.md - Detailed Linux setup
-   - QUICKSTART.md - Quick start guide
-   - config.yaml.example - Configuration examples
+• Command to run: {Colors.BOLD}lbry-downloader{Colors.END}
+• Config file: {config_path}
+• Download location: {download_location}
 
-Happy downloading!
+If {Colors.BOLD}lbry-downloader{Colors.END} command not found, run:
+    source ~/.bashrc
+
+If lbrynet is not installed, see LINUX_SETUP.md for installation.
+
+To add more channels later:
+    nano {config_path}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 Documentation:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• README.md - Project overview
+• LINUX_SETUP.md - Detailed Linux setup  
+• QUICKSTART.md - Quick reference
+• config.yaml.example - More examples
+
+Happy downloading! 🚀
 """)
 
 
