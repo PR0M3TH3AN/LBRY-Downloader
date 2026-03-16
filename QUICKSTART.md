@@ -112,6 +112,28 @@ Skipped existing: 146
 Failures: 0
 ```
 
+### Download Process
+
+When downloading, you'll see one of these patterns:
+
+**Fast Download (P2P Available):**
+```
+📥 Downloading: ExampleFile
+   File appeared: ExampleFile.zip
+✓ Downloaded: ExampleFile -> ExampleFile.zip
+```
+
+**Streaming Download (No P2P Peers):**
+```
+⏳ P2P download incomplete, trying daemon streaming endpoint...
+📥 Downloading: ExampleFile
+   Size: 28.61 MB
+   [████████████████████████░░░░░░░░░░░░░░░░] 62%
+✓ Download complete: ExampleFile.zip
+```
+
+The tool automatically handles both scenarios - you don't need to do anything special!
+
 ## Directory Structure
 
 Downloads are saved to:

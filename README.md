@@ -9,6 +9,7 @@ A Python tool that incrementally syncs downloadable file claims from configured 
 - **Robust Identity**: Uses stable LBRY claim IDs, not display names or titles
 - **Atomic State**: Database writes are atomic to prevent corruption
 - **Daemon-Based**: Talks directly to local `lbrynet` daemon via JSON-RPC
+- **Streaming Fallback**: Automatically uses daemon's streaming endpoint when P2P peers are unavailable
 - **Flexible Input**: Accepts Odysee URLs, LBRY URIs, or claim IDs
 - **Audit Trail**: Maintains run history in JSONL format
 - **Dry-Run Mode**: Test what would happen without downloading
@@ -334,9 +335,18 @@ Check that your channels are enabled and have downloadable content (streams, not
 - `config_loader.py` - Configuration parsing
 - `state_db.py` - Persistent state management
 - `planner.py` - Download decision logic
-- `downloader.py` - Download execution
+- `downloader.py` - Download execution with P2P + streaming fallback
 - `models.py` - Data structures
 - `utils.py` - Helper functions
+
+## How Downloads Work
+
+The downloader uses a two-stage approach for maximum reliability:
+
+1. **P2P Attempt**: First tries to download from LBRY's peer-to-peer network
+2. **Streaming Fallback**: If P2P peers are unavailable (common for older content), automatically falls back to the daemon's local streaming endpoint
+
+This ensures content downloads successfully even when the P2P network has no seeders.
 
 ## License
 

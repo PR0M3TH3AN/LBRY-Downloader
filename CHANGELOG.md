@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **Streaming Endpoint Fallback**: When P2P peers are unavailable, the tool now automatically falls back to the daemon's streaming endpoint (`http://localhost:5280/stream/{sd_hash}`), enabling reliable downloads even with no P2P peers
+- Reduced P2P wait timeout from 300s to 60s for faster fallback detection
+- Added progress bar display during streaming downloads
+
 ### Added
 - Initial implementation of LBRY Downloader
 - Support for incremental sync of LBRY/Odysee channels
