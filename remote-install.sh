@@ -86,28 +86,38 @@ if ! command -v lbrynet &> /dev/null; then
         
         # Download latest lbrynet for Linux
         LBRY_VERSION="0.113.0"
-        DOWNLOAD_URL="https://github.com/lbryio/lbry-sdk/releases/download/v${LBRY_VERSION}/lbry-sdk-linux.zip"
+        DOWNLOAD_URL="https://github.com/lbryio/lbry-sdk/releases/download/v${LBRY_VERSION}/lbrynet-linux.zip"
         
         cd ~/.local/bin
-        if wget -q --show-progress "$DOWNLOAD_URL" 2>&1 | tail -5; then
+        
+        # Download with progress
+        echo "Downloading lbrynet v${LBRY_VERSION}..."
+        if wget --progress=bar:force "$DOWNLOAD_URL" -O lbrynet-linux.zip 2>&1; then
             print_status "Downloaded lbrynet"
             
-            # Extract
-            if unzip -q lbry-sdk-linux.zip; then
-                rm lbry-sdk-linux.zip
-                chmod +x lbrynet
-                print_status "Extracted lbrynet"
-                
-                # Add to PATH if not already there
-                if ! echo "$PATH" | grep -q "$HOME/.local/bin"; then
-                    echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-                    print_status "Added ~/.local/bin to PATH"
-                    export PATH="$HOME/.local/bin:$PATH"
+            # Check if file exists and has content
+            if [ -f "lbrynet-linux.zip" ] && [ -s "lbrynet-linux.zip" ]; then
+                # Extract
+                if unzip -q lbrynet-linux.zip; then
+                    rm lbrynet-linux.zip
+                    chmod +x lbrynet
+                    print_status "Extracted lbrynet"
+                    
+                    # Add to PATH if not already there
+                    if ! echo "$PATH" | grep -q "$HOME/.local/bin"; then
+                        echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+                        print_status "Added ~/.local/bin to PATH"
+                        export PATH="$HOME/.local/bin:$PATH"
+                    fi
+                    
+                    print_status "LBRY SDK installed successfully!"
+                    print_info "lbrynet installed to: ~/.local/bin/lbrynet"
+                else
+                    print_error "Failed to extract lbrynet"
+                    rm -f lbrynet-linux.zip
                 fi
-                
-                print_status "LBRY SDK installed successfully!"
             else
-                print_error "Failed to extract lbrynet"
+                print_error "Download failed - file not found or empty"
             fi
         else
             print_error "Failed to download lbrynet"
