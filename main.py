@@ -164,13 +164,14 @@ def enumerate_channel_claims(
     return all_claims
 
 
-def run_sync(config: Config, dry_run: bool = False) -> dict:
+def run_sync(config: Config, dry_run: bool = False, direct: bool = False) -> dict:
     """
     Run the main synchronization process.
 
     Args:
         config: Application configuration.
         dry_run: If True, don't actually download.
+        direct: If True, use Odysee CDN instead of P2P.
 
     Returns:
         Statistics dictionary.
@@ -186,21 +187,6 @@ def run_sync(config: Config, dry_run: bool = False) -> dict:
         "failures": 0,
     }
 
-    # Initialize components
-    client = LbryClient(
-        api_url=config.lbrynet.api_url,
-        timeout=config.lbrynet.timeout_seconds,
-    )
-
-    # Check daemon health
-    logger.info(f"Checking daemon at {config.lbrynet.api_url}")
-    try:
-        check_daemon_health(client)
-        logger.info("Daemon is healthy")
-    except LbryClientError as e:
-        logger.error(str(e))
-        return stats
-
     # Load state
     state_db = StateDb(config.general.state_file)
     state_db.load()
@@ -208,7 +194,33 @@ def run_sync(config: Config, dry_run: bool = False) -> dict:
     # Initialize planner and downloader
     base_path = Path(config.general.base_dir)
     planner = Planner(config, state_db.data, str(base_path))
-    downloader = Downloader(client, config, base_path)
+
+    # Initialize LBRY client (needed for channel/claim resolution in both modes)
+    client = LbryClient(
+        api_url=config.lbrynet.api_url,
+        timeout=config.lbrynet.timeout_seconds,
+    )
+
+    # Check daemon health (needed for metadata even in direct mode)
+    logger.info(f"Checking daemon at {config.lbrynet.api_url}")
+    try:
+        check_daemon_health(client)
+        logger.info("Daemon is healthy")
+    except LbryClientError as e:
+        logger.error(str(e))
+        logger.error(
+            "Daemon is required for channel/claim resolution even in --direct mode"
+        )
+        return stats
+
+    if direct:
+        logger.info("Using DIRECT mode (Odysee CDN for downloads)")
+        from direct_downloader import DirectDownloader
+
+        downloader = DirectDownloader(config, base_path)
+    else:
+        logger.info("Using P2P mode (LBRY network)")
+        downloader = Downloader(client, config, base_path)
 
     # Process each enabled channel
     enabled_channels = [c for c in config.channels if c.enabled]
@@ -340,9 +352,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python main.py                    # Run with default config
+  python main.py                    # Run with default config (P2P mode)
   python main.py --config ./config.yaml  # Use custom config
   python main.py --dry-run          # Plan actions but don't download
+  python main.py --direct           # Download from Odysee CDN (more reliable)
         """,
     )
 
@@ -357,6 +370,13 @@ Examples:
         "-n",
         action="store_true",
         help="Show what would be downloaded without actually downloading",
+    )
+
+    parser.add_argument(
+        "--direct",
+        "-d",
+        action="store_true",
+        help="Download directly from Odysee CDN instead of using P2P network",
     )
 
     args = parser.parse_args()
@@ -375,7 +395,7 @@ Examples:
         ensure_directories(config)
 
         # Run sync
-        stats = run_sync(config, dry_run=args.dry_run)
+        stats = run_sync(config, dry_run=args.dry_run, direct=args.direct)
 
         # Print summary
         summary = format_summary(
