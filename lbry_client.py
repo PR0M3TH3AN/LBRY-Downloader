@@ -1,4 +1,4 @@
-"""LBRY daemon JSON-RPC client."""
+"""LBRY JSON-RPC client for local daemon or Odysee public proxy."""
 
 import json
 import logging
@@ -20,12 +20,32 @@ class LbryClientError(Exception):
 
 
 class LbryClient:
-    """JSON-RPC client for lbrynet daemon."""
+    """JSON-RPC client for lbrynet daemon or Odysee's public proxy."""
 
-    def __init__(self, api_url: str = "http://127.0.0.1:5279", timeout: int = 60):
+    ODYSEE_PROXY_URL = "https://api.na-backend.odysee.com/api/v1/proxy"
+
+    def __init__(
+        self,
+        api_url: str = "http://127.0.0.1:5279",
+        timeout: int = 60,
+        backend_name: str = "LBRY daemon",
+        supports_file_ops: bool = True,
+    ):
         self.api_url = api_url
         self.timeout = timeout
+        self.backend_name = backend_name
+        self.supports_file_ops = supports_file_ops
         self.session = requests.Session()
+
+    @classmethod
+    def create_odysee_proxy(cls, timeout: int = 60) -> "LbryClient":
+        """Create a client backed by Odysee's public JSON-RPC proxy."""
+        return cls(
+            api_url=cls.ODYSEE_PROXY_URL,
+            timeout=timeout,
+            backend_name="Odysee public proxy",
+            supports_file_ops=False,
+        )
 
     def _call(self, method: str, **params) -> Dict[str, Any]:
         """
@@ -50,15 +70,15 @@ class LbryClient:
             response.raise_for_status()
         except requests.exceptions.ConnectionError as e:
             raise LbryClientError(
-                f"Could not connect to LBRY daemon at {self.api_url}. "
-                f"Make sure lbrynet is installed and running. Error: {e}"
+                f"Could not connect to {self.backend_name} at {self.api_url}. "
+                f"Error: {e}"
             )
         except requests.exceptions.Timeout:
             raise LbryClientError(
-                f"Request to LBRY daemon timed out after {self.timeout} seconds"
+                f"Request to {self.backend_name} timed out after {self.timeout} seconds"
             )
         except requests.exceptions.RequestException as e:
-            raise LbryClientError(f"Request to LBRY daemon failed: {e}")
+            raise LbryClientError(f"Request to {self.backend_name} failed: {e}")
 
         try:
             data = response.json()
@@ -68,7 +88,7 @@ class LbryClient:
         if "error" in data and data["error"]:
             error = data["error"]
             raise LbryClientError(
-                f"Daemon returned error: {error.get('message', error)}"
+                f"{self.backend_name} returned error: {error.get('message', error)}"
             )
 
         return data.get("result", {})
@@ -168,6 +188,25 @@ class LbryClient:
             params["claim_type"] = ["stream"]
 
         return self._call("claim_search", **params)
+
+    def find_controlling_channel(self, channel_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Find the controlling channel claim for a channel name.
+
+        This is needed for Odysee's public proxy because user-friendly channel
+        URLs can resolve to non-controlling channel claims that do not enumerate
+        stream uploads correctly.
+        """
+        result = self.claim_search(
+            name=channel_name,
+            claim_type=["channel"],
+            is_controlling=True,
+            order_by=["effective_amount"],
+            page=1,
+            page_size=1,
+        )
+        items = result.get("items", [])
+        return items[0] if items else None
 
     def get(
         self, uri: str, download_directory: Optional[str] = None, **kwargs
