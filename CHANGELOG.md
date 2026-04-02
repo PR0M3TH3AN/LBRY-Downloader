@@ -27,6 +27,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Download limit** - Limit downloads to most recent N items per channel (default: 10)
 - **Interactive setup script** - Automated installation with user prompts
 - **Uninstall script** - Easy removal of the application
+- **Offline archive site builder** - Generates a static local website from the channel/claim/version folder tree
+- **Metadata/image backfill for skipped items** - Existing downloads can fill in missing JSON sidecars and thumbnails without re-downloading the file
 
 ### Technical Details
 - JSON-RPC client for lbrynet daemon
@@ -49,6 +51,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Under Consideration
 - GUI interface
 - Docker containerization
-- Automatic thumbnail/metadata download
 - Video format selection
 - Bandwidth limiting

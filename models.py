@@ -41,6 +41,9 @@ class GeneralConfig:
     direct_max_retries_per_url: int = 2
     direct_retry_backoff_seconds: float = 2.0
     direct_auto_fallback_to_p2p: bool = False
+    build_offline_site: bool = True
+    offline_site_dir: Optional[str] = None
+    fetch_missing_metadata_assets: bool = True
 
 
 @dataclass
@@ -73,6 +76,15 @@ class Channel:
     display_name: Optional[str] = None
     permanent_url: Optional[str] = None
     short_url: Optional[str] = None
+    canonical_url: Optional[str] = None
+    description: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    cover_url: Optional[str] = None
+    website_url: Optional[str] = None
+    email: Optional[str] = None
+    tags: List[str] = field(default_factory=list)
+    languages: List[str] = field(default_factory=list)
+    links: List[Dict[str, Any]] = field(default_factory=list)
     last_scan: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -86,6 +98,15 @@ class Channel:
             "display_name": self.display_name,
             "permanent_url": self.permanent_url,
             "short_url": self.short_url,
+            "canonical_url": self.canonical_url,
+            "description": self.description,
+            "thumbnail_url": self.thumbnail_url,
+            "cover_url": self.cover_url,
+            "website_url": self.website_url,
+            "email": self.email,
+            "tags": self.tags,
+            "languages": self.languages,
+            "links": self.links,
             "last_scan": self.last_scan,
         }
 
@@ -101,6 +122,15 @@ class Channel:
             display_name=data.get("display_name"),
             permanent_url=data.get("permanent_url"),
             short_url=data.get("short_url"),
+            canonical_url=data.get("canonical_url"),
+            description=data.get("description"),
+            thumbnail_url=data.get("thumbnail_url"),
+            cover_url=data.get("cover_url"),
+            website_url=data.get("website_url"),
+            email=data.get("email"),
+            tags=data.get("tags", []),
+            languages=data.get("languages", []),
+            links=data.get("links", []),
             last_scan=data.get("last_scan"),
         )
 

@@ -3,6 +3,7 @@
 import hashlib
 import json
 import re
+from urllib.parse import urlparse
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -223,6 +224,13 @@ def extract_channel_info(resolved_data: Dict[str, Any]) -> Dict[str, Any]:
         "value_type": claim.get("value_type"),
         "title": value.get("title"),
         "description": value.get("description"),
+        "thumbnail_url": extract_asset_url(value.get("thumbnail")),
+        "cover_url": extract_asset_url(value.get("cover")),
+        "website_url": value.get("website_url"),
+        "email": value.get("email"),
+        "tags": value.get("tags", []),
+        "languages": value.get("languages", []),
+        "links": extract_links(value),
     }
 
 
@@ -264,17 +272,78 @@ def extract_claim_metadata(claim_data: Dict[str, Any]) -> Dict[str, Any]:
         "release_time": value.get("release_time"),
         "title": value.get("title"),
         "description": value.get("description"),
+        "thumbnail_url": extract_asset_url(value.get("thumbnail")),
         "sd_hash": source.get("sd_hash"),
         "stream_hash": claim.get("stream_hash"),
         "txid": claim.get("txid"),
         "nout": claim.get("nout"),
         "tags": value.get("tags", []),
         "languages": value.get("languages", []),
+        "links": extract_links(value),
         "fee": fee,
         "source_name": source.get("name"),
         "source_media_type": source_media_type,
         "file_name": file_name,
     }
+
+
+def extract_asset_url(asset_data: Any) -> Optional[str]:
+    """Extract a URL from a thumbnail/cover field when present."""
+    if isinstance(asset_data, str):
+        return asset_data
+    if isinstance(asset_data, dict):
+        for key in ("url", "uri", "src", "href"):
+            value = asset_data.get(key)
+            if isinstance(value, str) and value:
+                return value
+    return None
+
+
+def extract_links(value: Dict[str, Any]) -> list[Dict[str, str]]:
+    """Extract any presentation links from a claim value."""
+    links = []
+
+    website_url = value.get("website_url")
+    if isinstance(website_url, str) and website_url:
+        links.append({"label": "Website", "url": website_url})
+
+    for key in ("locations", "links"):
+        raw_items = value.get(key)
+        if isinstance(raw_items, dict):
+            raw_items = [raw_items]
+        if not isinstance(raw_items, list):
+            continue
+
+        for item in raw_items:
+            if not isinstance(item, dict):
+                continue
+            url = None
+            for field in ("url", "uri", "href"):
+                candidate = item.get(field)
+                if isinstance(candidate, str) and candidate:
+                    url = candidate
+                    break
+            if not url:
+                continue
+            label = item.get("label") or item.get("title") or item.get("name") or _host_label(url)
+            links.append({"label": str(label), "url": url})
+
+    deduped = []
+    seen = set()
+    for link in links:
+        key = (link["label"], link["url"])
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(link)
+    return deduped
+
+
+def _host_label(url: str) -> str:
+    parsed = urlparse(url)
+    if parsed.netloc:
+        return parsed.netloc
+    return "Link"
 
 
 def format_summary(

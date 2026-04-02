@@ -149,6 +149,23 @@ channels:
         assert config.general.direct_retry_backoff_seconds == 1.5
         assert config.general.direct_auto_fallback_to_p2p is True
 
+    def test_offline_site_defaults_to_base_dir_site(self, tmp_path):
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+general:
+  base_dir: "~/test-archive"
+
+channels:
+  - input: "https://odysee.com/@Test:1"
+    enabled: true
+""")
+
+        config = load_config(str(config_file))
+
+        assert config.general.build_offline_site is True
+        assert config.general.fetch_missing_metadata_assets is True
+        assert config.general.offline_site_dir.endswith("/test-archive/site")
+
     def test_invalid_direct_retry_backoff(self, tmp_path):
         config_file = tmp_path / "config.yaml"
         config_file.write_text("""

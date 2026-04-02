@@ -55,4 +55,5 @@ py-modules = [
     "state_db",
     "planner",
     "downloader",
+    "offline_site",
 ]

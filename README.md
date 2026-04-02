@@ -23,6 +23,8 @@ For most users:
 - **Flexible Input**: Accepts Odysee URLs, LBRY URIs, or claim IDs
 - **Audit Trail**: Maintains run history in JSONL format
 - **Dry-Run Mode**: Test what would happen without downloading
+- **Offline Archive Site**: Builds a static browseable website from the download tree, including channel/claim metadata and local file links
+- **Metadata Backfill**: Skipped existing downloads still get missing `channel.json`, `claim.json`, `metadata.json`, and image assets when available
 
 ## Installation
 
@@ -116,6 +118,9 @@ general:
   base_dir: "~/Documents/lbry-downloads"
   max_workers: 2
   dry_run: false
+  build_offline_site: true
+  offline_site_dir: "~/Documents/lbry-downloads/site"
+  fetch_missing_metadata_assets: true
   include_reposts: false
   direct_base_urls:
     - "https://odysee.com"
@@ -131,6 +136,8 @@ channels:
     enabled: true
     content_mode: "non_video_only"
 ```
+
+When `build_offline_site` is enabled, the downloader writes a generated static site under `offline_site_dir` after each non-dry run. The site reflects the existing archive structure and links back to the real downloaded files under each channel/claim/version folder.
 
 ### Finding Channel URLs
 

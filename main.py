@@ -17,10 +17,12 @@ from downloader import DownloadError, Downloader
 from direct_downloader import DirectDownloadError
 from lbry_client import LbryClient, LbryClientError, check_daemon_health
 from models import Channel, Config, DownloadAction
+from offline_site import ArchiveSiteManager
 from planner import Planner
 from state_db import StateDb
 from utils import (
     create_channel_folder_name,
+    extract_channel_info,
     expand_path,
     format_summary,
     normalize_odysee_url,
@@ -124,6 +126,7 @@ def resolve_channel(
         folder = create_channel_folder_name(channel_name, channel_claim_id)
 
         value = claim.get("value", {})
+        channel_info = extract_channel_info(claim)
 
         channel = Channel(
             input=channel_input,
@@ -131,9 +134,18 @@ def resolve_channel(
             channel_claim_id=channel_claim_id,
             channel_name=channel_name,
             folder=folder,
-            display_name=value.get("title"),
-            permanent_url=claim.get("permanent_url"),
-            short_url=claim.get("short_url"),
+            display_name=channel_info.get("title"),
+            permanent_url=channel_info.get("permanent_url"),
+            short_url=channel_info.get("short_url"),
+            canonical_url=channel_info.get("canonical_url"),
+            description=channel_info.get("description"),
+            thumbnail_url=channel_info.get("thumbnail_url"),
+            cover_url=channel_info.get("cover_url"),
+            website_url=channel_info.get("website_url"),
+            email=channel_info.get("email"),
+            tags=channel_info.get("tags", []),
+            languages=channel_info.get("languages", []),
+            links=channel_info.get("links", []),
         )
 
         logger.info(f"Resolved channel: {channel_name} ({channel_claim_id})")
@@ -309,6 +321,7 @@ def run_sync(
     # Initialize planner and downloader
     base_path = Path(config.general.base_dir)
     planner = Planner(config, state_db.data, str(base_path))
+    site_manager = ArchiveSiteManager(config, base_path)
 
     if direct:
         logger.info("Using DIRECT mode (Odysee proxy for metadata, Odysee CDN for downloads)")
@@ -358,6 +371,9 @@ def run_sync(
             channel.folder = existing.folder
             if existing.download_path:
                 channel.download_path = existing.download_path
+
+        if not dry_run:
+            site_manager.ensure_channel_artifacts(channel)
 
         # Enumerate claims
         claims = enumerate_channel_claims(client, channel, config)
@@ -432,9 +448,12 @@ def run_sync(
             try:
                 success = downloader.download(action, dry_run=dry_run)
 
-                if success and not dry_run and action.action not in ("skip_existing",):
-                    # Update state
-                    planner.update_state_from_action(action, success=True)
+                if success and not dry_run:
+                    site_manager.ensure_claim_artifacts(channel, action)
+
+                    if action.action not in ("skip_existing",):
+                        # Update state only after metadata/artifacts are written
+                        planner.update_state_from_action(action, success=True)
 
                     # Log to history
                     history_file = base_path / "state" / "run-history.jsonl"
@@ -522,11 +541,18 @@ def run_sync(
 
         channel.last_scan = datetime.now(timezone.utc).isoformat()
         state_db.set_channel(channel)
+        if not dry_run:
+            site_manager.ensure_channel_artifacts(channel)
 
     # Save state
     if not dry_run:
         state_db.update_last_run()
         state_db.save()
+        if config.general.build_offline_site:
+            try:
+                site_manager.build_site(channel_index=state_db.data.channels)
+            except Exception as exc:
+                logger.exception("Offline site build failed: %s", exc)
         logger.info("State saved")
 
     return stats

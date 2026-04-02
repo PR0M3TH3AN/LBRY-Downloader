@@ -45,6 +45,12 @@ general:
   # If true, direct-mode runs will try the local lbrynet daemon as a fallback
   # after repeated rate-limit failures. Requires a working local daemon.
   direct_auto_fallback_to_p2p: false
+  # Build a static browseable offline site from the archive after each run.
+  build_offline_site: true
+  # Output directory for the generated static site.
+  offline_site_dir: "~/Documents/lbry-downloads/site"
+  # Fetch missing channel/claim images and sidecar metadata on reruns.
+  fetch_missing_metadata_assets: true
   
   # Download limit: Maximum number of downloads per channel per run
   # 

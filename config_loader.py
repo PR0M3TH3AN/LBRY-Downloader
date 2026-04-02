@@ -120,11 +120,27 @@ def _parse_config(raw: Dict[str, Any]) -> Config:
                 "direct_auto_fallback_to_p2p",
                 config.general.direct_auto_fallback_to_p2p,
             ),
+            build_offline_site=general_raw.get(
+                "build_offline_site", config.general.build_offline_site
+            ),
+            offline_site_dir=general_raw.get(
+                "offline_site_dir", config.general.offline_site_dir
+            ),
+            fetch_missing_metadata_assets=general_raw.get(
+                "fetch_missing_metadata_assets",
+                config.general.fetch_missing_metadata_assets,
+            ),
         )
 
     # Validate and expand paths
     config.general.base_dir = str(expand_path(config.general.base_dir))
     config.general.state_file = str(expand_path(config.general.state_file))
+    if config.general.offline_site_dir:
+        config.general.offline_site_dir = str(expand_path(config.general.offline_site_dir))
+    else:
+        config.general.offline_site_dir = str(
+            expand_path(f"{config.general.base_dir}/site")
+        )
 
     # Validate max_workers
     if config.general.max_workers < 1:
@@ -271,6 +287,12 @@ general:
   direct_retry_backoff_seconds: 2.0
   # If true, direct-mode runs will try the local node after repeated 429s
   direct_auto_fallback_to_p2p: false
+  # Build a static offline browseable site from the archive after each run
+  build_offline_site: true
+  # Where to write the generated offline site
+  offline_site_dir: "~/Documents/lbry-downloads/site"
+  # Fetch missing channel/claim images and metadata assets on reruns
+  fetch_missing_metadata_assets: true
   # Download limit: Number of most recent matching downloads per channel (0 = all)
   download_limit: 10
 
@@ -304,3 +326,6 @@ def ensure_directories(config: Config) -> None:
     # Create channels directory
     channels_path = base_path / "channels"
     channels_path.mkdir(exist_ok=True)
+
+    if config.general.build_offline_site:
+        Path(config.general.offline_site_dir).mkdir(parents=True, exist_ok=True)
