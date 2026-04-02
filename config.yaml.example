@@ -4,8 +4,10 @@
 
 lbrynet:
   # URL of the local LBRY daemon (lbrynet)
+  # Only used when running with --p2p
   api_url: "http://127.0.0.1:5279"
   # Timeout for daemon requests in seconds
+  # Only used when running with --p2p
   timeout_seconds: 60
 
 general:
@@ -31,6 +33,18 @@ general:
   channel_page_size: 50
   # Keep records of claims even if they disappear from the channel
   keep_missing_claim_records: true
+  # Direct download base URLs to try in order. Keep Odysee first unless you
+  # explicitly want a mirror-first strategy.
+  direct_base_urls:
+    - "https://odysee.com"
+    # - "https://your-mirror.example"
+  # How many times to retry the same direct URL after HTTP 429
+  direct_max_retries_per_url: 2
+  # Base delay in seconds for exponential backoff after HTTP 429
+  direct_retry_backoff_seconds: 2.0
+  # If true, direct-mode runs will try the local lbrynet daemon as a fallback
+  # after repeated rate-limit failures. Requires a working local daemon.
+  direct_auto_fallback_to_p2p: false
   
   # Download limit: Maximum number of downloads per channel per run
   # 
@@ -67,20 +81,36 @@ channels:
   # - enabled:         (optional) true/false - default: true
   # - download_path:   (optional) Custom download location for this channel
   #                    If not set, uses general.base_dir/channels/
+  # - content_mode:    (optional) What file types to download for this channel
+  #                    Values:
+  #                    - all             = video and non-video files
+  #                    - video_only      = only video files such as mp4/webm/mkv
+  #                    - non_video_only  = only non-video files such as zip/pdf
+  #                    Default: all
+  #                    Note: CLI flags --video-only and --non-video-only override
+  #                    all channel content_mode settings for that run.
   # - tags_include:    (optional) List of tags to include (empty = all)
   # - tags_exclude:    (optional) List of tags to exclude
   #
   # Example 1: Basic channel
   # - input: "https://odysee.com/@SomeChannel:1"
   #   enabled: true
+  #   content_mode: "all"
   #
-  # Example 2: Channel with custom download location
+  # Example 2: Channel with custom download location and only videos
   # - input: "https://odysee.com/@TechChannel:1"
   #   enabled: true
   #   download_path: "/mnt/media/videos/tech"
+  #   content_mode: "video_only"
   #
-  # Example 3: Channel with tag filtering
+  # Example 3: Channel that downloads only file bundles, docs, and other non-video claims
+  # - input: "https://odysee.com/@FileArchive:1"
+  #   enabled: true
+  #   content_mode: "non_video_only"
+  #
+  # Example 4: Channel with tag filtering
   # - input: "lbry://@AnotherChannel#5"
   #   enabled: true
+  #   content_mode: "all"
   #   tags_include: ["documentary", "science"]
   #   tags_exclude: ["shorts"]

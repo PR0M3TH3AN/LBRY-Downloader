@@ -350,8 +350,10 @@ def create_config(
 
 lbrynet:
   # URL of the local LBRY daemon (lbrynet)
+  # Only used when running with --p2p
   api_url: "http://127.0.0.1:5279"
   # Timeout for daemon requests in seconds
+  # Only used when running with --p2p
   timeout_seconds: 60
 
 general:
@@ -386,12 +388,14 @@ channels:
     for channel in channels:
         config += f'''  - input: "{channel["input"]}"
     enabled: true
+    content_mode: "non_video_only"
 '''
 
     if not channels:
         config += """  # Add your channels here:
   # - input: "https://odysee.com/@ChannelName:1"
   #   enabled: true
+  #   content_mode: "non_video_only"
 """
 
     return config
@@ -405,54 +409,13 @@ def create_launcher_script(install_dir: Path, venv_path: Path) -> None:
     bin_dir = install_dir / "bin"
     bin_dir.mkdir(exist_ok=True)
 
-    # Create main launcher with daemon auto-check
+    # Create main launcher
     launcher = bin_dir / "lbry-downloader"
     launcher_content = f"""#!/bin/bash
 # LBRY Downloader Launcher
-# Auto-checks and starts lbrynet daemon if needed
 
 INSTALL_DIR="{install_dir}"
 VENV_DIR="{venv_path}"
-DAEMON_URL="http://127.0.0.1:5279"
-
-# Check if daemon is running
-if ! curl -s "$DAEMON_URL" > /dev/null 2>&1; then
-    echo "LBRY daemon not running. Starting..."
-    
-    # Try to start daemon
-    if command -v lbrynet &> /dev/null; then
-        lbrynet start &
-        echo "Waiting for daemon to start..."
-        
-        # Wait up to 30 seconds for daemon
-        for i in $(seq 1 30); do
-            if curl -s "$DAEMON_URL" > /dev/null 2>&1; then
-                echo "✓ Daemon started successfully"
-                break
-            fi
-            sleep 1
-        done
-        
-        # Check if daemon started
-        if ! curl -s "$DAEMON_URL" > /dev/null 2>&1; then
-            echo "✗ Failed to start daemon automatically"
-            echo ""
-            echo "Please start it manually:"
-            echo "  lbrynet start"
-            echo ""
-            echo "Or see LINUX_SETUP.md for installation instructions"
-            exit 1
-        fi
-    else
-        echo "✗ lbrynet not found in PATH"
-        echo ""
-        echo "Please install LBRY SDK:"
-        echo "  https://github.com/lbryio/lbry-sdk/releases"
-        echo ""
-        echo "Or see LINUX_SETUP.md for detailed instructions"
-        exit 1
-    fi
-fi
 
 cd "$INSTALL_DIR"
 source "$VENV_DIR/bin/activate"
@@ -464,37 +427,13 @@ python main.py "$@"
     launcher.chmod(0o755)
     print_success(f"Created launcher: {launcher}")
 
-    # Create quick test script with daemon auto-check
+    # Create quick test script
     test_script = bin_dir / "lbry-test"
     test_content = f"""#!/bin/bash
 # Quick test script
 
 INSTALL_DIR="{install_dir}"
 VENV_DIR="{venv_path}"
-DAEMON_URL="http://127.0.0.1:5279"
-
-# Check if daemon is running
-if ! curl -s "$DAEMON_URL" > /dev/null 2>&1; then
-    echo "LBRY daemon not running. Starting..."
-    
-    if command -v lbrynet &> /dev/null; then
-        lbrynet start &
-        echo "Waiting for daemon to start..."
-        sleep 5
-        
-        if curl -s "$DAEMON_URL" > /dev/null 2>&1; then
-            echo "✓ Daemon started"
-        else
-            echo "✗ Failed to start daemon"
-            echo "Run manually: lbrynet start"
-            exit 1
-        fi
-    else
-        echo "✗ lbrynet not found. Install from:"
-        echo "  https://github.com/lbryio/lbry-sdk/releases"
-        exit 1
-    fi
-fi
 
 cd "$INSTALL_DIR"
 source "$VENV_DIR/bin/activate"
@@ -533,10 +472,10 @@ def run_setup() -> None:
     """Main setup function."""
     print(f"""
 {Colors.BOLD}╔══════════════════════════════════════════════════════════════╗
-║           LBRY Downloader - Interactive Setup               ║
+║      Odysee/LBRY Downloader - Interactive Setup             ║
 ║                                                              ║
 ║  This script will help you install and configure the        ║
-║  LBRY Downloader tool.                                       ║
+║  direct-first archive downloader.                            ║
 ╚══════════════════════════════════════════════════════════════╝{Colors.END}
 """)
 
@@ -662,20 +601,20 @@ def run_setup() -> None:
 ║                    Setup Complete!                           ║
 ╚══════════════════════════════════════════════════════════════╝{Colors.END}
 
-🎉 LBRY Downloader is ready to use!
+🎉 Odysee/LBRY Downloader is ready to use!
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 QUICK START (Run these commands):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-1️⃣  Start the LBRY daemon:
-    lbrynet start
+1️⃣  Optional P2P prerequisite:
+    Optional only for P2P mode: lbrynet start
 
 2️⃣  Test your configuration:
     lbry-downloader --dry-run
 
 3️⃣  Download content:
-    lbry-downloader
+    lbry-downloader --non-video-only
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ℹ️  IMPORTANT NOTES:
@@ -688,7 +627,7 @@ def run_setup() -> None:
 If {Colors.BOLD}lbry-downloader{Colors.END} command not found, run:
     source ~/.bashrc
 
-If lbrynet is not installed, see LINUX_SETUP.md for installation.
+Direct mode is the default. Use {Colors.BOLD}--p2p{Colors.END} only if you explicitly want the local node path.
 
 To add more channels later:
     nano {config_path}

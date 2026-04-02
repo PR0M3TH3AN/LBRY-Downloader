@@ -49,7 +49,15 @@ class Downloader:
             DownloadError: If the download fails.
         """
         if action.action == "skip_existing":
-            logger.debug(f"Skipping already downloaded: {action.claim_name}")
+            existing_path = action.metadata.get("existing_file_relpath")
+            if existing_path:
+                logger.info(
+                    "Skipping existing file: %s (%s)",
+                    action.claim_name,
+                    self.base_dir / existing_path,
+                )
+            else:
+                logger.info(f"Skipping existing file: {action.claim_name}")
             return True
 
         if dry_run:
@@ -61,6 +69,7 @@ class Downloader:
         version_dir.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Downloading: {action.claim_name}")
+        logger.info(f"Saving to directory: {version_dir}")
 
         try:
             # Call daemon to start P2P download
@@ -281,6 +290,7 @@ class Downloader:
         streaming_url = f"http://localhost:5280/stream/{sd_hash}"
 
         logger.info(f"Downloading via daemon streaming endpoint...")
+        logger.info(f"Streaming destination: {target_path}")
 
         try:
             response = requests.get(streaming_url, stream=True, timeout=300)
@@ -291,6 +301,7 @@ class Downloader:
             chunk_size = 8192
 
             print(f"\n📥 Downloading: {action.claim_name}")
+            print(f"   Saving to: {target_path}")
             print(f"   Size: {total_size / (1024 * 1024):.2f} MB")
             print()
 

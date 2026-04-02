@@ -12,7 +12,7 @@
 set -e
 
 echo "================================================"
-echo "  LBRY Downloader - Installation"
+echo "  Odysee/LBRY Downloader - Installation"
 echo "================================================"
 echo ""
 
@@ -117,51 +117,14 @@ pip install --upgrade pip
 pip install -r requirements.txt
 print_status "Python dependencies installed"
 
-# Check for lbrynet
 echo ""
-echo "Checking for LBRY SDK (lbrynet)..."
+echo "Checking for optional LBRY SDK (lbrynet)..."
 if command -v lbrynet &> /dev/null; then
-    print_status "lbrynet found at: $(which lbrynet)"
+    print_status "Optional P2P dependency found at: $(which lbrynet)"
     lbrynet --version
 else
-    print_warning "lbrynet not found in PATH"
-    echo ""
-    echo "The LBRY SDK (lbrynet) is required to download content."
-    echo ""
-    read -p "Would you like to download and install lbrynet now? (y/N): " -n 1 -r
-    echo
-    
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo "Downloading lbrynet..."
-        mkdir -p ~/.local/bin
-        
-        # Get latest release
-        LBRY_VERSION="0.113.0"
-        DOWNLOAD_URL="https://github.com/lbryio/lbry-sdk/releases/download/v${LBRY_VERSION}/lbry-sdk-linux.zip"
-        
-        cd ~/.local/bin
-        if wget -q "$DOWNLOAD_URL"; then
-            unzip -q lbry-sdk-linux.zip
-            rm lbry-sdk-linux.zip
-            chmod +x lbrynet
-            print_status "lbrynet installed to ~/.local/bin"
-            
-            # Check if ~/.local/bin is in PATH
-            if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-                echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-                print_status "Added ~/.local/bin to PATH in ~/.bashrc"
-                print_warning "Please run: source ~/.bashrc"
-            fi
-            
-            cd "$SCRIPT_DIR"
-        else
-            print_error "Failed to download lbrynet"
-            echo "Please install manually from: https://github.com/lbryio/lbry-sdk/releases"
-        fi
-    else
-        print_warning "Skipping lbrynet installation"
-        echo "You'll need to install it manually before using the downloader"
-    fi
+    print_info "lbrynet not found. Default direct mode does not require it."
+    print_info "Install it later only if you want to run with --p2p."
 fi
 
 # Initialize configuration
@@ -201,13 +164,6 @@ fi
 cd "$DOWNLOADER_DIR"
 source venv/bin/activate 2>/dev/null || true
 
-# Check if lbrynet is running
-if ! curl -s http://127.0.0.1:5279 > /dev/null 2>&1; then
-    echo "Starting lbrynet daemon..."
-    lbrynet start &
-    sleep 5
-fi
-
 python main.py "$@"
 EOF
 
@@ -233,7 +189,7 @@ echo "1. Edit configuration to add your channels:"
 echo "   nano ~/Documents/lbry-downloads/config.yaml"
 echo ""
 echo "2. Start the LBRY daemon:"
-echo "   lbrynet start"
+echo "   Optional only for P2P mode: lbrynet start"
 echo ""
 echo "3. Test with dry-run:"
 echo "   python main.py --dry-run"
@@ -241,9 +197,12 @@ echo "   # OR:"
 echo "   ~/bin/lbry-sync --dry-run"
 echo ""
 echo "4. Run the downloader:"
-echo "   python main.py"
+echo "   python main.py --non-video-only"
 echo "   # OR:"
-echo "   ~/bin/lbry-sync"
+echo "   ~/bin/lbry-sync --non-video-only"
+echo ""
+echo "5. Optional local-node mode:"
+echo "   python main.py --p2p"
 echo ""
 echo "For detailed instructions, see:"
 echo "  - LINUX_SETUP.md"

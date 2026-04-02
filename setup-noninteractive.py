@@ -76,7 +76,9 @@ if current_dir != Path(INSTALL_DIR):
 config_content = f"""# LBRY Downloader Configuration
 
 lbrynet:
+  # Only used when running with --p2p
   api_url: "http://127.0.0.1:5279"
+  # Only used when running with --p2p
   timeout_seconds: 60
 
 general:
@@ -97,6 +99,7 @@ channels:
   # Add your channels here:
   # - input: "https://odysee.com/@ChannelName:1"
   #   enabled: true
+  #   content_mode: "non_video_only"
 """
 
 config_path = Path(DOWNLOAD_DIR) / "config.yaml"
@@ -126,3 +129,7 @@ print(f"To run: {launcher}")
 print()
 print("Edit the config to add channels, then run:")
 print(f"  {launcher} --dry-run")
+print("Recommended first real run:")
+print(f"  {launcher} --non-video-only")
+print("Optional local-node mode:")
+print(f"  {launcher} --p2p")

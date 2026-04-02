@@ -20,7 +20,7 @@ REPO_URL="https://github.com/PR0M3TH3AN/LBRY-Downloader.git"
 INSTALL_DIR="${HOME}/Documents/LBRY-Downloader"
 
 echo "=========================================="
-echo "  LBRY Downloader - Remote Installer"
+echo "  Odysee/LBRY Downloader - Remote Installer"
 echo "=========================================="
 echo ""
 
@@ -74,70 +74,11 @@ fi
 
 print_status "Python $PYTHON_VERSION found"
 
-# Check if lbrynet is installed
-if ! command -v lbrynet &> /dev/null; then
-    print_warning "LBRY SDK (lbrynet) not found"
-    echo ""
-    echo "The LBRY SDK is required to download content from the LBRY network."
-    echo "It can be downloaded from: https://github.com/lbryio/lbry-sdk/releases"
-    echo ""
-    read -p "Download and install lbrynet automatically? (Y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-        print_status "Installing LBRY SDK..."
-        
-        # Create bin directory
-        mkdir -p ~/.local/bin
-        
-        # Download latest lbrynet for Linux
-        LBRY_VERSION="0.113.0"
-        DOWNLOAD_URL="https://github.com/lbryio/lbry-sdk/releases/download/v${LBRY_VERSION}/lbrynet-linux.zip"
-        
-        cd ~/.local/bin
-        
-        # Download with progress
-        echo "Downloading lbrynet v${LBRY_VERSION}..."
-        if wget --progress=bar:force "$DOWNLOAD_URL" -O lbrynet-linux.zip 2>&1; then
-            print_status "Downloaded lbrynet"
-            
-            # Check if file exists and has content
-            if [ -f "lbrynet-linux.zip" ] && [ -s "lbrynet-linux.zip" ]; then
-                # Extract
-                if unzip -q lbrynet-linux.zip; then
-                    rm lbrynet-linux.zip
-                    chmod +x lbrynet
-                    print_status "Extracted lbrynet"
-                    
-                    # Add to PATH if not already there
-                    if ! echo "$PATH" | grep -q "$HOME/.local/bin"; then
-                        echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-                        print_status "Added ~/.local/bin to PATH"
-                        export PATH="$HOME/.local/bin:$PATH"
-                    fi
-                    
-                    print_status "LBRY SDK installed successfully!"
-                    print_info "lbrynet installed to: ~/.local/bin/lbrynet"
-                else
-                    print_error "Failed to extract lbrynet"
-                    rm -f lbrynet-linux.zip
-                fi
-            else
-                print_error "Download failed - file not found or empty"
-            fi
-        else
-            print_error "Failed to download lbrynet"
-            echo "Please install manually from:"
-            echo "  https://github.com/lbryio/lbry-sdk/releases"
-        fi
-        
-        # Return to original directory
-        cd - > /dev/null
-    else
-        print_warning "Skipping lbrynet installation"
-        echo "You'll need to install it manually before using the downloader"
-    fi
+if command -v lbrynet &> /dev/null; then
+    print_status "Optional P2P dependency found: $(which lbrynet)"
 else
-    print_status "lbrynet found at: $(which lbrynet)"
+    print_info "lbrynet not found. That's fine for default direct mode."
+    print_info "Install it later only if you want to run with --p2p."
 fi
 
 # Check if running in interactive mode
@@ -187,19 +128,17 @@ echo ""
 echo "1️⃣  Reload your shell (IMPORTANT):"
 echo "    source ~/.bashrc"
 echo ""
-echo "2️⃣  Test the downloader (daemon starts automatically):"
+echo "2️⃣  Test the downloader:"
 echo "    lbry-downloader --dry-run"
 echo ""
 echo "3️⃣  Download content:"
-echo "    lbry-downloader"
+echo "    lbry-downloader --non-video-only"
 echo ""
 echo "💡 If 'lbry-downloader' command not found after reload, use:"
 echo "    ~/Documents/LBRY-Downloader/bin/lbry-downloader"
 echo ""
-echo "⚠️  If lbrynet was not installed automatically, install it from:"
-echo "    https://github.com/lbryio/lbry-sdk/releases"
-echo "    Then run: lbrynet start"
-echo "    ~/Documents/LBRY-Downloader/bin/lbry-downloader"
+echo "⚙️  Optional P2P mode:"
+echo "    Install lbrynet only if you want: ~/Documents/LBRY-Downloader/bin/lbry-downloader --p2p"
 echo ""
 echo "📁 Config file: ~/Documents/lbry-downloads/config.yaml"
 echo ""

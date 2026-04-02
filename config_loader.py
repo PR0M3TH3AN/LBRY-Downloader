@@ -20,6 +20,9 @@ class ConfigError(Exception):
     pass
 
 
+VALID_CONTENT_MODES = {"all", "video_only", "non_video_only"}
+
+
 def load_config(config_path: Optional[str] = None) -> Config:
     """
     Load and validate the configuration file.
@@ -102,6 +105,21 @@ def _parse_config(raw: Dict[str, Any]) -> Config:
             download_limit=general_raw.get(
                 "download_limit", config.general.download_limit
             ),
+            direct_base_urls=general_raw.get(
+                "direct_base_urls", config.general.direct_base_urls
+            ),
+            direct_max_retries_per_url=general_raw.get(
+                "direct_max_retries_per_url",
+                config.general.direct_max_retries_per_url,
+            ),
+            direct_retry_backoff_seconds=general_raw.get(
+                "direct_retry_backoff_seconds",
+                config.general.direct_retry_backoff_seconds,
+            ),
+            direct_auto_fallback_to_p2p=general_raw.get(
+                "direct_auto_fallback_to_p2p",
+                config.general.direct_auto_fallback_to_p2p,
+            ),
         )
 
     # Validate and expand paths
@@ -121,6 +139,22 @@ def _parse_config(raw: Dict[str, Any]) -> Config:
     # 0 means "all" (no limit), negative values are not allowed
     if config.general.download_limit < 0:
         raise ConfigError("download_limit must be 0 (for all) or a positive number")
+    if config.general.direct_max_retries_per_url < 0:
+        raise ConfigError("direct_max_retries_per_url must be 0 or a positive number")
+    if config.general.direct_retry_backoff_seconds <= 0:
+        raise ConfigError("direct_retry_backoff_seconds must be greater than 0")
+    if not isinstance(config.general.direct_base_urls, list):
+        raise ConfigError("direct_base_urls must be a list")
+    if not config.general.direct_base_urls:
+        raise ConfigError("direct_base_urls must contain at least one base URL")
+    normalized_direct_base_urls = []
+    for idx, base_url in enumerate(config.general.direct_base_urls, start=1):
+        if not isinstance(base_url, str) or not base_url.strip():
+            raise ConfigError(
+                f"direct_base_urls entry {idx} must be a non-empty string"
+            )
+        normalized_direct_base_urls.append(base_url.rstrip("/"))
+    config.general.direct_base_urls = normalized_direct_base_urls
 
     # Validate log_level
     valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
@@ -175,9 +209,17 @@ def _parse_channels(channels_raw: List[Dict[str, Any]]) -> List[ChannelConfig]:
             input=input_val,
             enabled=channel_raw.get("enabled", True),
             download_path=download_path,
+            content_mode=channel_raw.get("content_mode", "all"),
             tags_include=channel_raw.get("tags_include", []),
             tags_exclude=channel_raw.get("tags_exclude", []),
         )
+
+        if channel.content_mode not in VALID_CONTENT_MODES:
+            raise ConfigError(
+                f"Channel {i + 1} has invalid content_mode "
+                f"'{channel.content_mode}'. Must be one of: "
+                f"{', '.join(sorted(VALID_CONTENT_MODES))}"
+            )
 
         channels.append(channel)
 
@@ -190,30 +232,58 @@ def create_default_config() -> str:
 # Place this file at ~/Documents/lbry-downloads/config.yaml
 
 lbrynet:
+  # URL of the local LBRY daemon (lbrynet)
+  # Only used when running with --p2p
   api_url: "http://127.0.0.1:5279"
+  # Timeout for daemon requests in seconds
+  # Only used when running with --p2p
   timeout_seconds: 60
 
 general:
+  # Base directory for all downloads and state
   base_dir: "~/Documents/lbry-downloads"
+  # Path to the state database
   state_file: "~/Documents/lbry-downloads/state/database.json"
+  # Number of concurrent downloads
   max_workers: 2
+  # Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
   log_level: "INFO"
+  # If true, show what would be downloaded without actually downloading
   dry_run: false
+  # Verify that previously downloaded files still exist
   verify_existing_files: true
+  # Write SHA256 checksums for downloaded files
   write_checksums: true
+  # Filename handling: 'original' or 'safe'
   filename_mode: "original"
+  # Include reposts in downloads
   include_reposts: false
+  # Number of claims to fetch per page
   channel_page_size: 50
+  # Keep records of claims even if they disappear from the channel
   keep_missing_claim_records: true
+  # Direct download bases to try in order
+  direct_base_urls:
+    - "https://odysee.com"
+  # Retries per direct URL after HTTP 429
+  direct_max_retries_per_url: 2
+  # Base backoff in seconds after HTTP 429 (uses exponential backoff)
+  direct_retry_backoff_seconds: 2.0
+  # If true, direct-mode runs will try the local node after repeated 429s
+  direct_auto_fallback_to_p2p: false
+  # Download limit: Number of most recent matching downloads per channel (0 = all)
+  download_limit: 10
 
 channels:
   # Add your channels here. Examples:
   # - input: "https://odysee.com/@SomeChannel:1"
   #   enabled: true
+  #   content_mode: "non_video_only"
   #   tags_include: []
   #   tags_exclude: []
   # - input: "lbry://@AnotherChannel#5"
   #   enabled: true
+  #   content_mode: "all"
 """
 
 

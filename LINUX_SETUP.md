@@ -32,7 +32,7 @@ cd LBRY-Downloader
 
 This script will:
 1. Check and install system dependencies
-2. Download and install LBRY SDK (lbrynet) - **No blockchain sync required!**
+2. Set up the downloader for direct mode by default
 3. Set up a Python virtual environment
 4. Install Python packages
 5. Ask for your download location
@@ -42,11 +42,13 @@ This script will:
 
 **Want to uninstall later?** Just run `./uninstall.py`
 
-### About LBRY SDK (lbrynet) - IMPORTANT
+### About LBRY SDK (lbrynet) - Optional P2P Mode Only
 
 **Q: Does this download the LBRY blockchain?**
 
-**A:** The LBRY SDK downloads **blockchain headers** (not full blocks), which is required to function:
+**A:** Only if you choose to use `--p2p`. The default direct mode does not require this.
+
+When you do use `--p2p`, the LBRY SDK downloads **blockchain headers** (not full blocks):
 
 **First-time setup (one-time):**
 - Downloads ~1.7 million block headers
@@ -61,7 +63,7 @@ This script will:
 **What this means:**
 - The LBRY SDK needs this data to verify which content claims are valid
 - This is lighter than Bitcoin's full blockchain sync
-- But it IS required and will take time on first launch
+- But it is only required for the optional P2P path
 - You can stop it with `Ctrl+C` or `lbrynet stop`
 
 **Privacy note:** This connects to LBRY's network and syncs blockchain data to verify content. This is how the LBRY protocol works.
@@ -94,9 +96,9 @@ python3 --version  # Should be 3.8 or higher
 pip3 --version
 ```
 
-### 2. Install LBRY SDK (lbrynet daemon)
+### 2. Optional: Install LBRY SDK (`lbrynet`) for P2P Mode
 
-The LBRY SDK is required to communicate with the LBRY network.
+You only need the LBRY SDK if you want to run the downloader with `--p2p`. The default direct mode does not require it.
 
 #### Option A: Download Pre-built Binary (Recommended)
 
@@ -250,18 +252,22 @@ channels:
   # Technology channels
   - input: "https://odysee.com/@LinusTechTips:1"
     enabled: true
+    content_mode: "video_only"
   
   # Educational content  
   - input: "https://odysee.com/@veritasium:1"
     enabled: true
+    content_mode: "video_only"
   
   # News/Commentary
   - input: "https://odysee.com/@Timcast:1"
     enabled: true
+    content_mode: "video_only"
   
-  # Documentaries
+  # File / document archives
   - input: "https://odysee.com/@DocumentaryLab:1"
     enabled: true
+    content_mode: "non_video_only"
 ```
 
 #### URL Formats Supported
@@ -300,14 +306,24 @@ Add your channels under the `channels:` section:
 channels:
   - input: "https://odysee.com/@YourFavoriteChannel:1"
     enabled: true
+    content_mode: "non_video_only"
     tags_include: []
     tags_exclude: []
   
   - input: "https://odysee.com/@AnotherChannel:5"
     enabled: true
+    content_mode: "video_only"
     tags_include: []
     tags_exclude: []
 ```
+
+`content_mode` controls what each channel downloads:
+
+- `all`: video and non-video files
+- `video_only`: only videos such as mp4/webm/mkv
+- `non_video_only`: only file bundles/docs such as zip/pdf
+
+If you omit it, the default is `all`.
 
 ### 4. Configure Per-Channel Download Locations (Optional)
 
@@ -318,16 +334,19 @@ channels:
   # Downloads to default location
   - input: "https://odysee.com/@RegularChannel:1"
     enabled: true
+    content_mode: "all"
   
-  # Downloads to custom location (external drive)
+  # Downloads only videos to a custom location (external drive)
   - input: "https://odysee.com/@LargeVideos:1"
     enabled: true
     download_path: "/mnt/media/videos"
+    content_mode: "video_only"
   
-  # Downloads to custom location (home directory)
+  # Downloads only non-video files to a custom location
   - input: "https://odysee.com/@Music:1"
     enabled: true
     download_path: "~/Music/LBRY"
+    content_mode: "non_video_only"
 ```
 
 **Why use custom locations?**
@@ -363,7 +382,7 @@ general:
 ```
 
 The tool downloads **most recent items first** (sorted by publish date), so:
-- `download_limit: 10` = Download the 10 newest videos
+- `download_limit: 10` = Download the 10 newest matching items for that channel
 - Older items remain in the channel but won't be downloaded yet
 - On next run, it will download the next 10 (if new items were published)
 
@@ -382,7 +401,7 @@ Once you're happy with how it works, increase the limit or set to 0.
 
 ## Running the Daemon
 
-The LBRY daemon (`lbrynet`) must be running before using the downloader.
+The LBRY daemon (`lbrynet`) is only required if you want to use `--p2p`. The default direct mode does not require it.
 
 ### Start the Daemon
 
@@ -456,15 +475,39 @@ python3 main.py --dry-run
 
 This shows what would be downloaded without actually downloading anything.
 
+If you mostly want zip/doc/file claims and want to skip videos, the most useful first test is:
+
+```bash
+python3 main.py --dry-run --non-video-only
+```
+
 ### Normal Run
 
 ```bash
-# Make sure lbrynet is running
-lbrynet status
-
-# Run the downloader
+# Run the downloader using direct mode (default) and each channel's configured content_mode
 python3 main.py
 ```
+
+### Useful Run Variants
+
+```bash
+# Recommended default if you mainly want non-video files such as zip bundles
+python3 main.py --non-video-only
+
+# Force video-only mode for every channel for this run
+python3 main.py --video-only
+
+# Force non-video-only mode for every channel for this run
+python3 main.py --non-video-only
+
+# Use the local LBRY daemon and peer-to-peer mode instead of direct mode
+python3 main.py --p2p
+
+# Use P2P mode with a run-wide content override
+python3 main.py --p2p --non-video-only
+```
+
+CLI flags `--video-only` and `--non-video-only` override each channel's `content_mode` for that run only. `--p2p` overrides the default direct transport mode for that run only.
 
 ### Custom Config Location
 
@@ -590,7 +633,7 @@ lbc_mainnet: added BlockHeightEvent(height=1665210, change=2001)
 
 **What this means:**
 - The LBRY SDK is downloading blockchain headers (not full blocks)
-- This is required to verify content claims
+- This is only required when using `--p2p` to verify content claims
 - Takes 5-10 minutes on first run
 - Subsequent runs are instant
 
@@ -859,9 +902,9 @@ cd ~/Documents/LBRY-Downloader
 ./bin/lbry-test  # Automatically runs with --dry-run
 ```
 
-### Prerequisites: Start the Daemon
+### Optional Prerequisite: Start the Daemon for P2P Mode
 
-**Important:** Always start the LBRY daemon before running the downloader:
+Only do this if you plan to run with `--p2p`:
 
 ```bash
 # Check if daemon is running
@@ -886,14 +929,14 @@ pip3 install --user -r requirements.txt
 python3 init.py
 
 # Daily use
-lbrynet start                                          # Start daemon
 ~/Documents/LBRY-Downloader/bin/lbry-downloader --dry-run  # Test first
-~/Documents/LBRY-Downloader/bin/lbry-downloader            # Run sync
-lbrynet stop                                           # Stop daemon (optional)
+~/Documents/LBRY-Downloader/bin/lbry-downloader --non-video-only  # Recommended direct-mode run
+~/Documents/LBRY-Downloader/bin/lbry-downloader --p2p             # Optional local-node mode
 
 # Or if in PATH
 lbry-downloader --dry-run
-lbry-downloader
+lbry-downloader --non-video-only
+lbry-downloader --p2p
 
 # Locations
 Install:   ~/Documents/LBRY-Downloader/

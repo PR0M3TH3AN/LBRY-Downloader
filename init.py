@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Initialize LBRY Downloader configuration.
+Initialize Odysee/LBRY Downloader configuration.
 
 This script creates the initial configuration file and directory structure.
 """
@@ -14,7 +14,7 @@ from utils import expand_path
 
 
 def main():
-    print("LBRY Downloader - Initialization")
+    print("Odysee/LBRY Downloader - Initialization")
     print("=" * 40)
 
     # Default paths
@@ -51,12 +51,13 @@ def main():
     print("Next steps:")
     print("1. Edit the configuration file to add your channels")
     print(f"   nano {config_file}")
-    print("\n2. Ensure lbrynet daemon is running:")
-    print("   lbrynet start")
-    print("\n3. Run the downloader:")
-    print("   python main.py")
-    print("\n4. Or test first with dry-run:")
+    print("\n2. Test first with dry-run:")
     print("   python main.py --dry-run")
+    print("\n3. Recommended first real run:")
+    print("   python main.py --non-video-only")
+    print("\n4. Optional P2P mode if you want the local node path:")
+    print("   lbrynet start")
+    print("   python main.py --p2p")
     print("=" * 40)
 
 

@@ -256,6 +256,7 @@ def extract_claim_metadata(claim_data: Dict[str, Any]) -> Dict[str, Any]:
         "normalized_name": claim.get("normalized_name"),
         "claim_type": claim.get("claim_type"),
         "value_type": claim.get("value_type"),
+        "stream_type": value.get("stream_type"),
         "permanent_url": claim.get("permanent_url"),
         "short_url": claim.get("short_url"),
         "canonical_url": claim.get("canonical_url"),

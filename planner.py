@@ -183,6 +183,8 @@ class Planner:
                     target_dir=str(version_dir),
                     metadata=metadata,
                 )
+                if version.file_relpath:
+                    action.metadata["existing_file_relpath"] = version.file_relpath
                 logger.debug(f"Skipping existing: {claim_name}")
                 return action
             else:

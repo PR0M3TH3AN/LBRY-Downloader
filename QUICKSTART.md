@@ -39,17 +39,36 @@ Edit `~/Documents/lbry-downloads/config.yaml`:
 channels:
   - input: "https://odysee.com/@YourFavoriteChannel:1"
     enabled: true
+    content_mode: "non_video_only"
   - input: "https://odysee.com/@AnotherChannel:5"
     enabled: true
+    content_mode: "video_only"
 ```
 
 **Tip:** Just paste the Odysee URL exactly as it appears in your browser!
 
+### Per-Channel Content Mode
+
+You can choose what each channel downloads:
+
+- `content_mode: "all"` downloads video and non-video files
+- `content_mode: "video_only"` downloads only video files
+- `content_mode: "non_video_only"` downloads only zip/PDF/other non-video files
+
+Most users who want file bundles and archives should start with:
+
+```yaml
+channels:
+  - input: "https://odysee.com/@YourFavoriteChannel:1"
+    enabled: true
+    content_mode: "non_video_only"
+```
+
 ## Launching
 
-### Start the LBRY Daemon First
+### Optional: Start the LBRY Daemon First
 
-**Important:** The LBRY daemon must be running before using the downloader:
+You only need the LBRY daemon if you plan to use `--p2p`. The default direct mode does not require it.
 
 ```bash
 # Start the daemon
@@ -90,8 +109,20 @@ python main.py --dry-run
 # Test what would be downloaded (dry run) - ALWAYS DO THIS FIRST
 lbry-downloader --dry-run
 
-# Actually download content
+# Recommended default: download only non-video files such as zip bundles
+lbry-downloader --non-video-only
+
+# Actually download using each channel's configured content_mode
 lbry-downloader
+
+# Download only videos for every channel for this run
+lbry-downloader --video-only
+
+# Download only non-video files for every channel for this run
+lbry-downloader --non-video-only
+
+# Use the local LBRY node instead of the default direct mode
+lbry-downloader --p2p
 
 # Use custom config file
 lbry-downloader --config ./my-config.yaml
@@ -99,6 +130,8 @@ lbry-downloader --config ./my-config.yaml
 # View help
 lbry-downloader --help
 ```
+
+CLI flags `--video-only` and `--non-video-only` override per-channel `content_mode` for that run only. `--p2p` overrides the default direct transport mode for that run only.
 
 ## Understanding Output
 
@@ -159,6 +192,8 @@ Downloads are saved to:
 ```bash
 lbrynet start
 ```
+
+This only applies when you are using `--p2p`. Default direct mode does not require `lbrynet`.
 
 **"Config file not found"**
 ```bash

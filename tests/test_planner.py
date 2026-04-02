@@ -104,6 +104,10 @@ class TestPlanner:
 
         assert len(actions) == 1
         assert actions[0].action == "skip_existing"
+        assert (
+            actions[0].metadata["existing_file_relpath"]
+            == f"channels/Test__channel123/claims/{claim_folder}/versions/{version_token}/video.mp4"
+        )
 
     def test_new_version_detected(self):
         channel = Channel(

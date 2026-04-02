@@ -12,6 +12,7 @@ class ChannelConfig:
     input: str
     enabled: bool = True
     download_path: Optional[str] = None
+    content_mode: str = "all"
     tags_include: List[str] = field(default_factory=list)
     tags_exclude: List[str] = field(default_factory=list)
 
@@ -34,6 +35,12 @@ class GeneralConfig:
     download_limit: int = (
         10  # Number of most recent downloads per channel, or "all" (0)
     )
+    direct_base_urls: List[str] = field(
+        default_factory=lambda: ["https://odysee.com"]
+    )
+    direct_max_retries_per_url: int = 2
+    direct_retry_backoff_seconds: float = 2.0
+    direct_auto_fallback_to_p2p: bool = False
 
 
 @dataclass

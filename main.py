@@ -14,6 +14,7 @@ from typing import List, Optional
 
 from config_loader import ConfigError, ensure_directories, load_config
 from downloader import DownloadError, Downloader
+from direct_downloader import DirectDownloadError
 from lbry_client import LbryClient, LbryClientError, check_daemon_health
 from models import Channel, Config, DownloadAction
 from planner import Planner
@@ -24,6 +25,20 @@ from utils import (
     format_summary,
     normalize_odysee_url,
 )
+
+
+VIDEO_EXTENSIONS = {
+    ".mp4",
+    ".webm",
+    ".mkv",
+    ".mov",
+    ".avi",
+    ".m4v",
+    ".mpeg",
+    ".mpg",
+    ".wmv",
+    ".flv",
+}
 
 
 def setup_logging(log_level: str) -> None:
@@ -82,6 +97,24 @@ def resolve_channel(
 
         channel_claim_id = claim.get("claim_id")
         channel_name = claim.get("name")
+
+        # Odysee's public proxy can resolve vanity channel URLs to older
+        # non-controlling channel claims. Enumerating streams from those claim IDs
+        # returns zero items, so normalize to the controlling claim before scanning.
+        if not client.supports_file_ops and channel_name:
+            controlling_claim = client.find_controlling_channel(channel_name)
+            if controlling_claim and controlling_claim.get("claim_id"):
+                controlling_claim_id = controlling_claim.get("claim_id")
+                if controlling_claim_id != channel_claim_id:
+                    logger.debug(
+                        "Normalized proxy-resolved channel %s from %s to controlling claim %s",
+                        channel_name,
+                        channel_claim_id,
+                        controlling_claim_id,
+                    )
+                    claim = controlling_claim
+                    channel_claim_id = controlling_claim_id
+                    channel_name = claim.get("name")
 
         if not channel_claim_id:
             logger.error(f"No claim_id in resolved channel: {channel_input}")
@@ -164,14 +197,96 @@ def enumerate_channel_claims(
     return all_claims
 
 
-def run_sync(config: Config, dry_run: bool = False, direct: bool = False) -> dict:
+def _action_is_video(action: DownloadAction) -> bool:
+    """Return True when a planned action looks like a video download."""
+    media_type = (action.metadata.get("source_media_type") or "").lower()
+    if media_type.startswith("video/"):
+        return True
+
+    stream_type = (action.metadata.get("stream_type") or "").lower()
+    if stream_type == "video":
+        return True
+
+    source_name = action.metadata.get("source_name") or action.metadata.get("file_name")
+    if source_name and Path(source_name).suffix.lower() in VIDEO_EXTENSIONS:
+        return True
+
+    return False
+
+
+def filter_actions_by_content_type(
+    actions: List[DownloadAction],
+    *,
+    video_only: bool = False,
+    non_video_only: bool = False,
+) -> List[DownloadAction]:
+    """Filter planned actions by content type before limits and execution."""
+    if not video_only and not non_video_only:
+        return actions
+
+    filtered_actions = []
+    for action in actions:
+        is_video = _action_is_video(action)
+        if video_only and is_video:
+            filtered_actions.append(action)
+        elif non_video_only and not is_video:
+            filtered_actions.append(action)
+
+    return filtered_actions
+
+
+def resolve_content_filter_mode(
+    channel_config,
+    *,
+    video_only: bool = False,
+    non_video_only: bool = False,
+) -> tuple[bool, bool, str]:
+    """Resolve the effective content filter for a channel."""
+    if video_only:
+        return True, False, "video-only (CLI override)"
+    if non_video_only:
+        return False, True, "non-video-only (CLI override)"
+
+    content_mode = getattr(channel_config, "content_mode", "all")
+    if content_mode == "video_only":
+        return True, False, "video-only (channel config)"
+    if content_mode == "non_video_only":
+        return False, True, "non-video-only (channel config)"
+
+    return False, False, "all content"
+
+
+def resolve_transport_mode(
+    *,
+    direct: bool = False,
+    p2p: bool = False,
+) -> tuple[bool, str]:
+    """Resolve the effective transport mode."""
+    if p2p:
+        return False, "p2p"
+    return True, "direct"
+
+
+def _is_rate_limit_error(exc: Exception) -> bool:
+    """Return True when the error indicates direct-mode rate limiting."""
+    return "rate-limited" in str(exc).lower()
+
+
+def run_sync(
+    config: Config,
+    dry_run: bool = False,
+    direct: bool = True,
+    *,
+    video_only: bool = False,
+    non_video_only: bool = False,
+) -> dict:
     """
     Run the main synchronization process.
 
     Args:
         config: Application configuration.
         dry_run: If True, don't actually download.
-        direct: If True, use Odysee CDN instead of P2P.
+        direct: If True, use Odysee proxy/CDN instead of P2P.
 
     Returns:
         Statistics dictionary.
@@ -195,30 +310,28 @@ def run_sync(config: Config, dry_run: bool = False, direct: bool = False) -> dic
     base_path = Path(config.general.base_dir)
     planner = Planner(config, state_db.data, str(base_path))
 
-    # Initialize LBRY client (needed for channel/claim resolution in both modes)
-    client = LbryClient(
-        api_url=config.lbrynet.api_url,
-        timeout=config.lbrynet.timeout_seconds,
-    )
-
-    # Check daemon health (needed for metadata even in direct mode)
-    logger.info(f"Checking daemon at {config.lbrynet.api_url}")
-    try:
-        check_daemon_health(client)
-        logger.info("Daemon is healthy")
-    except LbryClientError as e:
-        logger.error(str(e))
-        logger.error(
-            "Daemon is required for channel/claim resolution even in --direct mode"
-        )
-        return stats
-
     if direct:
-        logger.info("Using DIRECT mode (Odysee CDN for downloads)")
+        logger.info("Using DIRECT mode (Odysee proxy for metadata, Odysee CDN for downloads)")
+        client = LbryClient.create_odysee_proxy(timeout=config.lbrynet.timeout_seconds)
         from direct_downloader import DirectDownloader
 
         downloader = DirectDownloader(config, base_path)
+        p2p_fallback_client = None
+        p2p_fallback_downloader = None
+        p2p_fallback_available = None
     else:
+        client = LbryClient(
+            api_url=config.lbrynet.api_url,
+            timeout=config.lbrynet.timeout_seconds,
+        )
+        logger.info(f"Checking daemon at {config.lbrynet.api_url}")
+        try:
+            check_daemon_health(client)
+            logger.info("Daemon is healthy")
+        except LbryClientError as e:
+            logger.error(str(e))
+            return stats
+
         logger.info("Using P2P mode (LBRY network)")
         downloader = Downloader(client, config, base_path)
 
@@ -251,6 +364,26 @@ def run_sync(config: Config, dry_run: bool = False, direct: bool = False) -> dic
 
         # Plan downloads
         actions = planner.process_channel_claims(channel, claims)
+        actions_before_filter = len(actions)
+        channel_video_only, channel_non_video_only, mode_label = (
+            resolve_content_filter_mode(
+                channel_config,
+                video_only=video_only,
+                non_video_only=non_video_only,
+            )
+        )
+        actions = filter_actions_by_content_type(
+            actions,
+            video_only=channel_video_only,
+            non_video_only=channel_non_video_only,
+        )
+
+        if len(actions) != actions_before_filter:
+            logger.info(
+                "Content filter (%s) skipped %s planned claim(s).",
+                mode_label,
+                actions_before_filter - len(actions),
+            )
 
         # Apply download limit if configured
         # Separate skip actions from download actions
@@ -314,7 +447,61 @@ def run_sync(config: Config, dry_run: bool = False, direct: bool = False) -> dic
                         "success" if success else "failure",
                     )
 
-            except DownloadError as e:
+            except (DownloadError, DirectDownloadError) as e:
+                if (
+                    direct
+                    and config.general.direct_auto_fallback_to_p2p
+                    and isinstance(e, DirectDownloadError)
+                    and _is_rate_limit_error(e)
+                    and not dry_run
+                ):
+                    if p2p_fallback_available is None:
+                        try:
+                            p2p_fallback_client = LbryClient(
+                                api_url=config.lbrynet.api_url,
+                                timeout=config.lbrynet.timeout_seconds,
+                            )
+                            check_daemon_health(p2p_fallback_client)
+                            p2p_fallback_downloader = Downloader(
+                                p2p_fallback_client, config, base_path
+                            )
+                            p2p_fallback_available = True
+                            logger.warning(
+                                "Direct mode hit rate limiting. Local P2P fallback is available."
+                            )
+                        except LbryClientError as fallback_init_error:
+                            p2p_fallback_available = False
+                            logger.warning(
+                                "Direct mode hit rate limiting, but P2P fallback is unavailable: %s",
+                                fallback_init_error,
+                            )
+
+                    if p2p_fallback_available and p2p_fallback_downloader is not None:
+                        try:
+                            logger.warning(
+                                "Retrying %s via P2P fallback after direct-mode rate limiting.",
+                                action.claim_name,
+                            )
+                            success = p2p_fallback_downloader.download(
+                                action, dry_run=False
+                            )
+                            if success:
+                                planner.update_state_from_action(action, success=True)
+                                history_file = base_path / "state" / "run-history.jsonl"
+                                state_db.log_run_history(
+                                    str(history_file),
+                                    channel.channel_claim_id,
+                                    action.claim_id,
+                                    action.action,
+                                    action.version_token,
+                                    "success",
+                                )
+                                continue
+                        except DownloadError as fallback_error:
+                            e = DirectDownloadError(
+                                f"{e}; P2P fallback also failed: {fallback_error}"
+                            )
+
                 logger.error(f"Download failed: {e}")
                 stats["failures"] += 1
 
@@ -352,10 +539,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python main.py                    # Run with default config (P2P mode)
+  python main.py                    # Run with default config (DIRECT mode)
   python main.py --config ./config.yaml  # Use custom config
   python main.py --dry-run          # Plan actions but don't download
-  python main.py --direct           # Download from Odysee CDN (more reliable)
+  python main.py --p2p              # Use the local LBRY node instead
         """,
     )
 
@@ -372,16 +559,39 @@ Examples:
         help="Show what would be downloaded without actually downloading",
     )
 
-    parser.add_argument(
+    transport_group = parser.add_mutually_exclusive_group()
+    transport_group.add_argument(
         "--direct",
         "-d",
         action="store_true",
-        help="Download directly from Odysee CDN instead of using P2P network",
+        help="Use direct mode explicitly (default: Odysee public proxy + CDN)",
+    )
+    transport_group.add_argument(
+        "--p2p",
+        action="store_true",
+        help="Use the local LBRY daemon and peer-to-peer network instead of direct mode",
+    )
+
+    content_filter_group = parser.add_mutually_exclusive_group()
+    content_filter_group.add_argument(
+        "--video-only",
+        action="store_true",
+        help="Only include video downloads such as mp4/webm/mkv",
+    )
+    content_filter_group.add_argument(
+        "--non-video-only",
+        action="store_true",
+        help="Only include non-video downloads such as zip files",
     )
 
     args = parser.parse_args()
 
     try:
+        direct_mode, transport_label = resolve_transport_mode(
+            direct=args.direct,
+            p2p=args.p2p,
+        )
+
         # Load config
         config = load_config(args.config)
 
@@ -390,12 +600,19 @@ Examples:
         logger = logging.getLogger(__name__)
 
         logger.info("LBRY Downloader starting")
+        logger.info("Effective transport mode: %s", transport_label)
 
         # Ensure directories exist
         ensure_directories(config)
 
         # Run sync
-        stats = run_sync(config, dry_run=args.dry_run, direct=args.direct)
+        stats = run_sync(
+            config,
+            dry_run=args.dry_run,
+            direct=direct_mode,
+            video_only=args.video_only,
+            non_video_only=args.non_video_only,
+        )
 
         # Print summary
         summary = format_summary(

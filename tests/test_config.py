@@ -122,6 +122,50 @@ channels:
 
         assert "filename_mode" in str(exc_info.value)
 
+    def test_valid_direct_retry_config(self, tmp_path):
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+general:
+  base_dir: "~/test"
+  direct_base_urls:
+    - "https://odysee.com/"
+    - "https://mirror.example/"
+  direct_max_retries_per_url: 3
+  direct_retry_backoff_seconds: 1.5
+  direct_auto_fallback_to_p2p: true
+
+channels:
+  - input: "https://odysee.com/@Test:1"
+    enabled: true
+""")
+
+        config = load_config(str(config_file))
+
+        assert config.general.direct_base_urls == [
+            "https://odysee.com",
+            "https://mirror.example",
+        ]
+        assert config.general.direct_max_retries_per_url == 3
+        assert config.general.direct_retry_backoff_seconds == 1.5
+        assert config.general.direct_auto_fallback_to_p2p is True
+
+    def test_invalid_direct_retry_backoff(self, tmp_path):
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""
+general:
+  base_dir: "~/test"
+  direct_retry_backoff_seconds: 0
+
+channels:
+  - input: "https://odysee.com/@Test:1"
+    enabled: true
+""")
+
+        with pytest.raises(ConfigError) as exc_info:
+            load_config(str(config_file))
+
+        assert "direct_retry_backoff_seconds" in str(exc_info.value)
+
 
 class TestDefaultConfig:
     def test_create_default_config(self):
